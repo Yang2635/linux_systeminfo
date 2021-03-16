@@ -1,12 +1,20 @@
 #!/bin/bash
 
+#-------------------------------------
+# author：Yang2635
+# blog_site：https://www.yfriend.xyz
+# slogan：学的不仅是技术，更是梦想！
+#-------------------------------------
+
 User=$(whoami)
-Disk=$(df -h | grep "/$" | awk '{print "总量："$2,"，已使用"$3,"，剩余："$4,"，使用百分比："$5}')
-Memory=$(free -gh | grep "^Mem" | awk '{print "总内存："$2,"，已使用："$3,"，剩余："$4}')
-Swap=$(free -gh | grep "^Swap" | awk '{print "总存储："$2,"，已使用："$3,"，剩余："$4}')
+Disk=$(df -h / | sed '1d' | awk '{print "总量："$2,"，已使用："$3,"，剩余："$4,"，使用百分比："$5}' | tr -d " ")
+Inode=$(df -i / | sed '1d' | awk '{print "总量："$2,"，已使用："$3,"，剩余："$4,"，使用百分比："$5}' | tr -d " ")
+Memory=$(free -gh | grep "^Mem" | awk '{print "总内存："$2,"，已使用："$3,"，剩余："$4}' | tr -d " ")
+Swap=$(free -gh | grep "^Swap" | awk '{print "总存储："$2,"，已使用："$3,"，剩余："$4}' | tr -d " ")
 Temp=$(du -sh /tmp | cut -f1)
 Load_average=$(cat /proc/loadavg | awk '{print "1分钟："$1,"，5分钟："$2,"，15分钟："$3}')
 Login_Users=$(users | wc -w)
+Login_IP=$(who /var/log/wtmp | sed -n '$p' | sed  "s/[()]//g" | awk '{print $5}')
 Release=$(cat /etc/redhat-release | awk '{print $(NF-1)}')
 Uptime=$(cat /proc/uptime | cut -f1 -d.)
 Date=$(date "+%Y-%m-%d %H:%M:%S")
@@ -20,15 +28,17 @@ Run_time_Secs=$((Uptime%60))
 Static_Hostname=$(hostnamectl | grep "Static" | awk -F ': ' '{print $2}')
 System=$(hostnamectl | grep "System" | awk -F ': ' '{print $2}')
 Kernel=$(hostnamectl | grep "Kernel" | awk -F ': ' '{print $2}')
-Process=$(echo "正在运行 "`ps -Afl | wc -l`" 个进程")
+Process=$(echo "正在运行 "`ps -A | wc -l`" 个进程")
 Max_Proc=$(/sbin/sysctl -n kernel.pid_max 2>/dev/null)
 
+#Architecture
 if [ $(hostnamectl | grep "Architecture" | awk -F ': ' '{print $2}')==x86-64 ];then
 Architecture="64位"
 else
 Architecture="32位"
 fi
 
+#ETH0网卡数据收发（待完善）
 if [ $(ifconfig &>/dev/null;echo $?) -eq 0 ];then
 	Network_Pack=$(ifconfig eth0 | grep "packets" | awk '{print $5}'| awk '{printf  ("%.3f\n",$1/1024/1024/1024)}' | awk '{printf $1 " " }' | awk '{print "已接收："$1" GiB""，已发送："$2" GiB"}')
 else
@@ -40,6 +50,7 @@ else
 	fi
 fi
 
+#Private IP address
 Network_IP=$(/sbin/ip route get 8.8.8.8 | head -1 | cut -d' ' -f7)
 
 #MySQL
@@ -69,7 +80,7 @@ fi
 #JAVA
 JAVA_Path=$(which java 2>/dev/null)
 if [ -z $JAVA_Path ];then
-	Java_version="JDK未安装！"
+	Java_version="JAVA未安装！"
 else
 	Java_version=$($JAVA_Path -version 2>&1 | awk -F '"' '{print $2}'|tr -d "\n")
 fi
@@ -88,10 +99,11 @@ echo -e "
             MySQL：${MySQL_version}
               PHP：${PHP_version}
              JAVA：${Java_version} 
-     当前系统位数：${Architecture}
+         系统位数：${Architecture}
      eth0网卡收发：${Network_Pack}
-     当前系统负载：${Load_average}
+         系统负载：${Load_average}
              磁盘：${Disk}
+        Inode信息：${Inode}
  临时文件目录已用：${Temp}
              内存：${Memory}
      Swap虚拟内存：${Swap}
@@ -99,5 +111,6 @@ echo -e "
    系统最大进程数：${Max_Proc}
        系统已运行：${Run_Day} 天 ${Run_time_hour} 小时 ${Run_time_mins} 分钟 ${Run_time_Secs} 秒
      当前登录时间：${Date}
+   当前您登录的IP：${Login_IP}
  \n ===================================================================\n"
 
