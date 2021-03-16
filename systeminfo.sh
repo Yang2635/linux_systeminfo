@@ -3,7 +3,7 @@
 #-------------------------------------
 # author：Yang2635
 # blog_site：https://www.yfriend.xyz
-# slogan：学的不仅是技术，更是梦想！
+# slogan：初次见面，欢迎来访！
 #-------------------------------------
 
 User=$(whoami)
@@ -40,11 +40,11 @@ fi
 
 #ETH0网卡数据收发（待完善）
 if [ $(ifconfig &>/dev/null;echo $?) -eq 0 ];then
-	Network_Pack=$(ifconfig eth0 | grep "packets" | awk '{print $5}'| awk '{printf  ("%.3f\n",$1/1024/1024/1024)}' | awk '{printf $1 " " }' | awk '{print "已接收："$1" GiB""，已发送："$2" GiB"}')
+	Network_Pack=$(ifconfig eth0 | grep "bytes" | awk '{print $5}'| awk '{printf  ("%.3f\n",$1/1024/1024/1024)}' | awk '{printf $1 " " }' | awk '{print "已接收："$1" GiB""，已发送："$2" GiB"}')
 else
 	yum install -y net-tools &>/dev/null
 	if [ $(echo $?) -eq 0 ];then
-		Network_Pack=$(ifconfig eth0 | grep "packets" | awk '{print $5}'| awk '{printf  ("%.3f\n",$1/1024/1024/1024)}' | awk '{printf $1 " " }' | awk '{print "已接收："$1" GiB""，已发送："$2" GiB"}')
+		Network_Pack=$(ifconfig eth0 | grep "bytes" | awk '{print $5}'| awk '{printf  ("%.3f\n",$1/1024/1024/1024)}' | awk '{printf $1 " " }' | awk '{print "已接收："$1" GiB""，已发送："$2" GiB"}')
 	else
 		Network_Pack="未找到ifconfig命令或net-tools工具未安装！"
 	fi
@@ -58,7 +58,7 @@ Mysql_Path=$(which mysql 2>/dev/null)
 if [ -z $Mysql_Path ];then
 	MySQL_version="MySQL数据库未安装！"
 else
-	MySQL_version=$($Mysql_Path --version 2>/dev/null | awk '{print $3" "$4" "$5;}' | tr -d ",")
+	MySQL_version=$($Mysql_Path --version 2>/dev/null | awk '{print $3,$4,$5}' | tr -d ",")
 fi
 
 #Nginx
@@ -66,7 +66,7 @@ Nginx_Path=$(which nginx 2>/dev/null)
 if [ -z $Nginx_Path ];then
 	Nginx_version="Nginx未安装！"
 else
-	Nginx_version=$($Nginx_Path -v 2>&1 | awk '{print $3}' | tr -d " ")
+	Nginx_version=$($Nginx_Path -v 2>&1 | awk -F ': '  '{print $2}')
 fi
 
 #PHP
@@ -74,7 +74,7 @@ PHP_Path=$(which php 2>/dev/null)
 if [ -z $PHP_Path ];then
 	PHP_version="PHP未安装！"
 else
-	PHP_version=$($PHP_Path -v | head -1 | awk '{print $2}' | tr -d " ")
+	PHP_version=$($PHP_Path -v | head -1 | awk '{print $2}')
 fi
 
 #JAVA
@@ -82,7 +82,7 @@ JAVA_Path=$(which java 2>/dev/null)
 if [ -z $JAVA_Path ];then
 	Java_version="JAVA未安装！"
 else
-	Java_version=$($JAVA_Path -version 2>&1 | awk -F '"' '{print $2}'|tr -d "\n")
+	Java_version=$($JAVA_Path -version 2>&1 | awk -F '"' '{print $2}' | tr -d "\n")
 fi
 
 echo -e "
