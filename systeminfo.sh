@@ -38,6 +38,14 @@ else
 Architecture="32位"
 fi
 
+#home分区
+Home=$(df -h | grep "/home" 2>/dev/null)
+if [ -z "$Home" ];then
+	Disk_Home="home目录非独立挂载！"
+else
+	Disk_Home=$(df -h | grep "/home" | awk '{print "总量："$2,"，已使用："$3,"，剩余："$4,"，使用百分比："$5}' | tr -d " ")
+fi
+
 #ETH0网卡数据收发（待完善）
 if [ $(ifconfig &>/dev/null;echo $?) -eq 0 ];then
 	Network_Pack=$(ifconfig eth0 | grep "bytes" | awk '{print $5}'| awk '{printf  ("%.3f\n",$1/1024/1024/1024)}' | awk '{printf $1 " " }' | awk '{print "已接收："$1" GiB""，已发送："$2" GiB"}')
@@ -102,7 +110,8 @@ echo -e "
          系统位数：${Architecture}
      eth0网卡收发：${Network_Pack}
          系统负载：${Load_average}
-             磁盘：${Disk}
+           主磁盘：${Disk}
+         home分区：${Disk_Home}
         Inode信息：${Inode}
  临时文件目录已用：${Temp}
              内存：${Memory}
