@@ -6,18 +6,47 @@
 # slogan：初次见面，欢迎来访！
 #-------------------------------------
 
+#Basic Info
 User=$(whoami)
-Disk=$(df -h / | sed '1d' | awk '{print "总量："$2,"，已使用："$3,"，剩余："$4,"，使用百分比："$5}' | tr -d " ")
-Inode=$(df -i / | sed '1d' | awk '{print "总量："$2,"，已使用："$3,"，剩余："$4,"，使用百分比："$5}' | tr -d " ")
-Memory=$(free -gh | grep "^Mem" | awk '{print "总内存："$2,"，已使用："$3,"，剩余："$4}' | tr -d " ")
-Swap=$(free -gh | grep "^Swap" | awk '{print "总存储："$2,"，已使用："$3,"，剩余："$4}' | tr -d " ")
+Disk=$(df -h / | sed '1d' | awk '{print "总量："$2,"，已使用："$3,"，剩余："$4,"，百分比："$5}' | tr -d " ")
+Inode=$(df -i / | sed '1d' | awk '{print "总量："$2,"，已使用："$3,"，剩余："$4,"，百分比："$5}' | tr -d " ")
+Memory=$(free -gh | awk '/^Mem/{print "总内存："$2,"，已使用："$3,"，剩余："$4}' | tr -d " ")
+Swap=$(free -gh | awk '/^Swap/{print "总存储："$2,"，已使用："$3,"，剩余："$4}' | tr -d " ")
 Temp=$(du -sh /tmp | cut -f1)
 Load_average=$(cat /proc/loadavg | awk '{print "1分钟："$1,"，5分钟："$2,"，15分钟："$3}')
 Login_Users=$(users | wc -w)
 Login_IP=$(who /var/log/wtmp | sed -n '$p' | sed  "s/[()]//g" | awk '{print $5}')
-Release=$(cat /etc/redhat-release | awk '{print $(NF-1)}')
+
+#System Release
+Static_Hostname=$(hostnamectl | grep "Static" | awk -F ': ' '{print $2}')
+System=$(hostnamectl | grep "System" | awk -F ': ' '{print $2}')
+
+System_info=$(hostnamectl | awk -F ': ' '/System/{print $2}'| awk '{print $1}')
+if [  "$System_info" == "CentOS" ];then
+	Release=$(cat /etc/redhat-release 2>/dev/null | awk '{print $(NF-1)}')
+elif [[ "$System_info" == "Debian"  ||  "$System_info" == "Ubuntu" ]];then
+	Release=$(cat /etc/os-release |tr -d "\"" | awk -F '=' '/^VERSION=/{print $2}')
+else
+	Release="未知的操作系统或脚本未适配该系统！"
+fi
+
+Kernel=$(hostnamectl | grep "Kernel" | awk -F ': ' '{print $2}')
+
+#Time
 Uptime=$(cat /proc/uptime | cut -f1 -d.)
 Date=$(date "+%Y-%m-%d %H:%M:%S")
+
+#CPU INFO
+CPU_Num=$(cat /proc/cpuinfo | grep "name" | cut -f2 -d ':' | uniq | wc -l)
+if [ $CPU_Num -eq 1 ];then
+	CPU_Info=$(cat /proc/cpuinfo | grep "name" | awk -F ': ' '{print $2}' | uniq)
+else
+	CPU_Info=$(cat /proc/cpuinfo | grep "name" | uniq | sed -n '1,$p' | awk -F ': ' '{print $2" | "}' | tr -d "\n")
+fi
+
+CPU_PhysicalCoreNum=$(cat /proc/cpuinfo | grep "physical id" | sort | uniq |wc -l)
+CPU_CoreNum=$(cat /proc/cpuinfo | grep "cpu cores" | uniq | awk -F ': ' '{print $2}')
+CPU_ThreadNum=$(cat /proc/cpuinfo| grep "^processor"| wc -l)
 
 #System Load
 Run_Day=$((Uptime/60/60/24))
@@ -25,9 +54,7 @@ Run_time_hour=$((Uptime/60/60%24))
 Run_time_mins=$((Uptime/60%60))
 Run_time_Secs=$((Uptime%60))
 
-Static_Hostname=$(hostnamectl | grep "Static" | awk -F ': ' '{print $2}')
-System=$(hostnamectl | grep "System" | awk -F ': ' '{print $2}')
-Kernel=$(hostnamectl | grep "Kernel" | awk -F ': ' '{print $2}')
+#Process
 Process=$(echo "正在运行 "`ps -A | wc -l`" 个进程")
 Max_Proc=$(/sbin/sysctl -n kernel.pid_max 2>/dev/null)
 
@@ -43,18 +70,36 @@ Home=$(df -h | grep "/home" 2>/dev/null)
 if [ -z "$Home" ];then
 	Disk_Home="home目录非独立挂载！"
 else
-	Disk_Home=$(df -h | grep "/home" | awk '{print "总量："$2,"，已使用："$3,"，剩余："$4,"，使用百分比："$5}' | tr -d " ")
+	Disk_Home=$(df -h | grep "/home" | awk '{print "总量："$2,"，已使用："$3,"，剩余："$4,"，百分比："$5}' | tr -d " ")
 fi
 
-#ETH0网卡数据收发（待完善）
-if [ $(ifconfig &>/dev/null;echo $?) -eq 0 ];then
+#Eth0网卡数据收发（目前适配eth0）
+Ifconfig_test=$(ifconfig &>/dev/null;echo $?)
+Ifconfig_eth0=$(ifconfig eth0 &>/dev/null;echo $?)
+
+if [ $Ifconfig_test -eq 0 ] && [ $Ifconfig_eth0 -eq 0 ];then
 	Network_Pack=$(ifconfig eth0 | grep "bytes" | awk '{print $5}'| awk '{printf  ("%.3f\n",$1/1024/1024/1024)}' | awk '{printf $1 " " }' | awk '{print "已接收："$1" GiB""，已发送："$2" GiB"}')
-else
-	yum install -y net-tools &>/dev/null
-	if [ $(echo $?) -eq 0 ];then
-		Network_Pack=$(ifconfig eth0 | grep "bytes" | awk '{print $5}'| awk '{printf  ("%.3f\n",$1/1024/1024/1024)}' | awk '{printf $1 " " }' | awk '{print "已接收："$1" GiB""，已发送："$2" GiB"}')
-	else
-		Network_Pack="未找到ifconfig命令或net-tools工具未安装！"
+elif [ $Ifconfig_test -eq 0 ] && [ $Ifconfig_eth0 -ne 0 ];then
+	Network_Pack="eth0网卡设备未找到"
+elif [ $Ifconfig_test -ne 0 ];then
+	if [ "$System_info" == "CentOS" ];then
+		yum install net-tools -y &>/dev/null
+		if [ $(echo $?) -eq 0 ] && [ $(ifconfig eth0 &>/dev/null;echo $?) -eq 0 ];then
+			Network_Pack=$(ifconfig eth0 | grep "bytes" | awk '{print $5}'| awk '{printf  ("%.3f\n",$1/1024/1024/1024)}' | awk '{printf $1 " " }' | awk '{print "已接收："$1" GiB""，已发送："$2" GiB"}')
+		elif [ $(echo $?) -eq 0 ] && [ $(ifconfig eth0 &>/dev/null;echo $?) -ne 0 ];then
+			Network_Pack="net-tools工具安装成功但eth0网卡设备未找到！"
+		else
+			Network_Pack="net-tools工具安装失败！"
+		fi
+	elif [[ "$System_info" == "Debian"  ||  "$System_info" == "Ubuntu" ]];then
+		apt install net-tools -y &>/dev/null
+		if [ $(echo $?) -eq 0 ] && [ $(ifconfig eth0 &>/dev/null;echo $?) -eq 0 ];then
+			Network_Pack=$(ifconfig eth0 | grep "bytes" | awk '{print $5}'| awk '{printf  ("%.3f\n",$1/1024/1024/1024)}' | awk '{printf $1 " " }' | awk '{print "已接收："$1" GiB""，已发送："$2" GiB"}')
+		elif [ $(echo $?) -eq 0 ] && [ $(ifconfig eth0 &>/dev/null;echo $?) -ne 0 ];then
+			Network_Pack="net-tools工具安装成功但eth0网卡设备未找到！"
+		else
+			Network_Pack="net-tools工具安装失败！"
+		fi
 	fi
 fi
 
@@ -106,7 +151,9 @@ echo -e "
             Nginx：${Nginx_version}
             MySQL：${MySQL_version}
               PHP：${PHP_version}
-             JAVA：${Java_version} 
+             JAVA：${Java_version}
+          CPU型号：${CPU_Info}
+      CPU个数信息：${CPU_PhysicalCoreNum} 个物理CPU，每个物理CPU有 ${CPU_CoreNum} 个物理核心数，共 ${CPU_ThreadNum} 个线程
          系统位数：${Architecture}
      eth0网卡收发：${Network_Pack}
          系统负载：${Load_average}
@@ -122,4 +169,3 @@ echo -e "
      当前登录时间：${Date}
    当前您登录的IP：${Login_IP}
  \n ===================================================================\n"
-
