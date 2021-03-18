@@ -31,7 +31,8 @@ apt update && apt install wget -y
 wget --no-check-certificate https://raw.githubusercontent.com/Yang2635/linux_scripts/main/systeminfo.sh && chmod +x systeminfo.sh && bash systeminfo.sh
 ```
 
-后期查看可使用`bash systeminfo.sh`再次执行该脚本，若需要用户登录terminal终端时就执行，可编辑当前用户的`.bashrc`文件（`.bashrc`文件仅当前用户生效），将该脚本的绝对路径添加上即可，下次用户登录terminal终端即可自动执行。也可直接在`/etc/profile`中添加脚本的绝对路径，此时则为全局生效（不建议）
+
+后期查看可使用`bash systeminfo.sh`命令再次执行该脚本，若需要用户登录terminal终端时就执行，可编辑当前用户的`.bashrc`文件（`.bashrc`文件仅当前用户生效），将该脚本的执行路径添加上即可，若脚本在当前用户目录下，可使用命令`echo "./systeminfo.sh" >> .bashrc`进行添加，下次用户登录terminal终端即可自动执行输出。也可直接在`/etc/profile`中添加脚本的绝对路径，此时则为全局生效（不建议）
 
 显示效果如图所示：
 
