@@ -16,6 +16,7 @@ apt install net-tools -y
 ```
 ## 一键脚本食用：
 更新软件库并安装wget
+
 CentOS：
 ```shell
 yum update -y && yum install wget -y
