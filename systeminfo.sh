@@ -1,39 +1,53 @@
 #!/bin/bash
 
-#-------------------------------------
+#-----------------------------------------------------------
 # author：Yang2635
 # blog_site：https://www.yfriend.xyz
 # slogan：初次见面，欢迎来访！
-#-------------------------------------
+# 
+# 脚本仅适配了CentOS、Debian、Ubuntu系统
+#-----------------------------------------------------------------
 
 #Basic Info
 User=$(whoami)
+User_id=$(id | sed -e "s/[(][^)]*[)]//g" | awk '{print $1"，"$2"，"$3}')
 Disk=$(df -h / | sed '1d' | awk '{print "总量："$2,"，已使用："$3,"，剩余："$4,"，百分比："$5}' | tr -d " ")
 Inode=$(df -i / | sed '1d' | awk '{print "总量："$2,"，已使用："$3,"，剩余："$4,"，百分比："$5}' | tr -d " ")
-Memory=$(free -gh | awk '/^Mem/{print "总内存："$2,"，已使用："$3,"，剩余："$4}' | tr -d " ")
-Swap=$(free -gh | awk '/^Swap/{print "总存储："$2,"，已使用："$3,"，剩余："$4}' | tr -d " ")
-Temp=$(du -sh /tmp | cut -f1)
+Memory=$(free -gh | awk '/^(Mem|内存)/{print "总内存："$2,"，已使用："$3,"，剩余："$4}' | tr -d " ")
+Swap=$(free -gh | awk '/^(Swap|交换)/{print "总存储："$2,"，已使用："$3,"，剩余："$4}' | tr -d " ")
+Temp=$(du -sh /tmp 2>/dev/null | cut -f1)
 Load_average=$(cat /proc/loadavg | awk '{print "1分钟："$1,"，5分钟："$2,"，15分钟："$3}')
 Login_Users=$(users | wc -w)
-Login_IP=$(who /var/log/wtmp | sed -n '$p' | sed  "s/[()]//g" | awk '{print $5}')
+Login_IP=$(who /var/log/wtmp | sed -n '$p' | sed  "s/[()]//g" | awk '{print $NF}')
+System_Users="系统共有 `cat /etc/passwd  | wc -l` 个用户"
 
 #System Release
-Static_Hostname=$(hostnamectl | grep "Static" | awk -F ': ' '{print $2}')
-System=$(hostnamectl | grep "System" | awk -F ': ' '{print $2}')
+Static_Hostname=$(hostnamectl 2>/dev/null | grep "Static" | awk -F ': ' '{print $2}')
+System=$(hostnamectl 2>/dev/null | grep "System" | awk -F ': ' '{print $2}')
 
-System_info=$(hostnamectl | awk -F ': ' '/System/{print $2}'| awk '{print $1}')
+System_info=$(hostnamectl 2>/dev/null | awk -F ': ' '/System/{print $2}'| awk '{print $1}')
 if [  "$System_info" == "CentOS" ];then
 	Release=$(cat /etc/redhat-release 2>/dev/null | awk '{print $(NF-1)}')
 elif [[ "$System_info" == "Debian"  ||  "$System_info" == "Ubuntu" ]];then
-	Release=$(cat /etc/os-release |tr -d "\"" | awk -F '=' '/^VERSION=/{print $2}')
+	Release=$(cat /etc/os-release | tr -d "\"" | awk -F '=' '/^VERSION=/{print $2}')
 else
 	Release="未知的操作系统或脚本未适配该系统！"
 fi
 
-Kernel=$(hostnamectl | grep "Kernel" | awk -F ': ' '{print $2}')
+Kernel=$(hostnamectl 2>/dev/null | grep "Kernel" | awk -F ': ' '{print $2}')
+
+#System Allow Login User
+Shadow_Test=$(cat /etc/shadow 2>/dev/null)
+if [ -z "${Shadow_Test}" ];then
+	Allow_Login="您没有权限查看可登录系统的用户数！"
+else
+	Allow_LoginUserNum=$(cat /etc/shadow | awk -F ':' '!/(\*|!!)/{print $1}' | wc -w)
+	#Allow_LoginUser=$(cat /etc/shadow | awk -F ':' '!/(\*|!!)/{print $1}' | awk  '{for(i=1;i<=NR;i++)printf $i" "}')
+	Allow_Login="有 ${Allow_LoginUserNum} 个可登录终端的用户！"
+fi
+
 
 #Time
-Uptime=$(cat /proc/uptime | cut -f1 -d.)
 Date=$(date "+%Y-%m-%d %H:%M:%S")
 
 #CPU INFO
@@ -49,6 +63,7 @@ CPU_CoreNum=$(cat /proc/cpuinfo | grep "cpu cores" | uniq | awk -F ': ' '{print 
 CPU_ThreadNum=$(cat /proc/cpuinfo| grep "^processor"| wc -l)
 
 #System Load
+Uptime=$(cat /proc/uptime | cut -f1 -d.)
 Run_Day=$((Uptime/60/60/24))
 Run_time_hour=$((Uptime/60/60%24))
 Run_time_mins=$((Uptime/60%60))
@@ -59,10 +74,10 @@ Process=$(echo "正在运行 "`ps -A | wc -l`" 个进程")
 Max_Proc=$(/sbin/sysctl -n kernel.pid_max 2>/dev/null)
 
 #Architecture
-if [ $(hostnamectl | grep "Architecture" | awk -F ': ' '{print $2}')==x86-64 ];then
-Architecture="64位"
+if [ $(hostnamectl 2>/dev/null | awk -F ': ' '/Architecture/{print $2}')==x86-64 ];then
+	Architecture="64位"
 else
-Architecture="32位"
+	Architecture="32位"
 fi
 
 #home分区
@@ -73,32 +88,40 @@ else
 	Disk_Home=$(df -h | grep "/home" | awk '{print "总量："$2,"，已使用："$3,"，剩余："$4,"，百分比："$5}' | tr -d " ")
 fi
 
-#Eth0网卡数据收发（目前适配eth0）
+#eth0网卡流量与IO流量
 Ifconfig_test=$(ifconfig &>/dev/null;echo $?)
 Ifconfig_eth0=$(ifconfig eth0 &>/dev/null;echo $?)
 
 if [ $Ifconfig_test -eq 0 ] && [ $Ifconfig_eth0 -eq 0 ];then
-	Network_Pack=$(ifconfig eth0 | grep "bytes" | awk '{print $5}'| awk '{printf  ("%.3f\n",$1/1024/1024/1024)}' | awk '{printf $1 " " }' | awk '{print "已接收："$1" GiB""，已发送："$2" GiB"}')
+	Network_eth0=$(ifconfig eth0 | tr -d "()" | awk '/bytes/{printf $(NF-1) " " $NF "|"}' | awk -F '|' '{print "已接收："$1,"，已发送："$2}')
+	Network_lo=$(ifconfig lo | tr -d "()" | awk '/bytes/{printf $(NF-1) " " $NF "|"}' | awk -F '|' '{print "已接收："$1,"，已发送："$2}')
 elif [ $Ifconfig_test -eq 0 ] && [ $Ifconfig_eth0 -ne 0 ];then
-	Network_Pack="eth0网卡设备未找到"
+	Network_eth0="eth0网卡设备未找到"
+	Network_lo=$(ifconfig lo | tr -d "()" | awk '/bytes/{printf $(NF-1) " " $NF "|"}' | awk -F '|' '{print "已接收："$1,"，已发送："$2}')
 elif [ $Ifconfig_test -ne 0 ];then
 	if [ "$System_info" == "CentOS" ];then
 		yum install net-tools -y &>/dev/null
 		if [ $(echo $?) -eq 0 ] && [ $(ifconfig eth0 &>/dev/null;echo $?) -eq 0 ];then
-			Network_Pack=$(ifconfig eth0 | grep "bytes" | awk '{print $5}'| awk '{printf  ("%.3f\n",$1/1024/1024/1024)}' | awk '{printf $1 " " }' | awk '{print "已接收："$1" GiB""，已发送："$2" GiB"}')
+			Network_eth0=$(ifconfig eth0 | tr -d "()" | awk '/bytes/{printf $(NF-1) " " $NF "|"}' | awk -F '|' '{print "已接收："$1,"，已发送："$2}')
+			Network_lo=$(ifconfig lo | tr -d "()" | awk '/bytes/{printf $(NF-1) " " $NF "|"}' | awk -F '|' '{print "已接收："$1,"，已发送："$2}')
 		elif [ $(echo $?) -eq 0 ] && [ $(ifconfig eth0 &>/dev/null;echo $?) -ne 0 ];then
-			Network_Pack="net-tools工具安装成功但eth0网卡设备未找到！"
+			Network_eth0="net-tools工具安装成功但eth0网卡设备未找到！"
+			Network_lo=$(ifconfig lo | tr -d "()" | awk '/bytes/{printf $(NF-1) " " $NF "|"}' | awk -F '|' '{print "已接收："$1,"，已发送："$2}')
 		else
-			Network_Pack="net-tools工具安装失败！"
+			Network_eth0="net-tools工具安装失败！"
+			Network_lo="net-tools工具安装失败！"
 		fi
 	elif [[ "$System_info" == "Debian"  ||  "$System_info" == "Ubuntu" ]];then
 		apt install net-tools -y &>/dev/null
 		if [ $(echo $?) -eq 0 ] && [ $(ifconfig eth0 &>/dev/null;echo $?) -eq 0 ];then
-			Network_Pack=$(ifconfig eth0 | grep "bytes" | awk '{print $5}'| awk '{printf  ("%.3f\n",$1/1024/1024/1024)}' | awk '{printf $1 " " }' | awk '{print "已接收："$1" GiB""，已发送："$2" GiB"}')
+			Network_eth0=$(ifconfig eth0 | tr -d "()" | awk '/bytes/{printf $(NF-1) " " $NF "|"}' | awk -F '|' '{print "已接收："$1,"，已发送："$2}')
+			Network_lo=$(ifconfig lo | tr -d "()" | awk '/bytes/{printf $(NF-1) " " $NF "|"}' | awk -F '|' '{print "已接收："$1,"，已发送："$2}')
 		elif [ $(echo $?) -eq 0 ] && [ $(ifconfig eth0 &>/dev/null;echo $?) -ne 0 ];then
-			Network_Pack="net-tools工具安装成功但eth0网卡设备未找到！"
+			Network_eth0="net-tools工具安装成功但eth0网卡设备未找到！"
+			Network_lo=$(ifconfig lo | tr -d "()" | awk '/bytes/{printf $(NF-1) " " $NF "|"}' | awk -F '|' '{print "已接收："$1,"，已发送："$2}')
 		else
-			Network_Pack="net-tools工具安装失败！"
+			Network_eth0="net-tools工具安装失败！"
+			Network_lo="net-tools工具安装失败！"
 		fi
 	fi
 fi
@@ -109,7 +132,7 @@ Network_IP=$(/sbin/ip route get 8.8.8.8 | head -1 | cut -d' ' -f7)
 #MySQL
 Mysql_Path=$(which mysql 2>/dev/null)
 if [ -z $Mysql_Path ];then
-	MySQL_version="MySQL数据库未安装！"
+	MySQL_version="MySQL未安装！"
 else
 	MySQL_version=$($Mysql_Path --version 2>/dev/null | awk '{print $3,$4,$5}' | tr -d ",")
 fi
@@ -142,7 +165,9 @@ echo -e "
  Welcome to this services！The following is the Device Information：\n
  ===================================================================\n
      当前登录用户：${User}
+       当前用户id：${User_id}
    当前登录用户数：${Login_Users} User(s)
+     系统用户统计：${System_Users}，${Allow_Login}
            私网IP：${Network_IP}
    系统静态用户名：${Static_Hostname}
          系统版本：${System}
@@ -155,7 +180,8 @@ echo -e "
           CPU型号：${CPU_Info}
       CPU个数信息：${CPU_PhysicalCoreNum} 个物理CPU，每个物理CPU有 ${CPU_CoreNum} 个物理核心数，共 ${CPU_ThreadNum} 个线程
          系统位数：${Architecture}
-     eth0网卡收发：${Network_Pack}
+         eth0流量：${Network_eth0}
+           lo流量：${Network_lo}
          系统负载：${Load_average}
            主磁盘：${Disk}
          home分区：${Disk_Home}
