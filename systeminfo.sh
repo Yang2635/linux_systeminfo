@@ -10,7 +10,7 @@
 
 #Basic Info
 User=$(whoami)
-User_id=$(id | sed -e "s/[(][^)]*[)]//g" | awk '{print $1"，"$2"，"$3}')
+User_id=$(id | sed "s/[(][^)]*[)]//g" | awk '{print $1"，"$2"，"$3}')
 Disk=$(df -h / | sed '1d' | awk '{print "总量："$2,"，已使用："$3,"，剩余："$4,"，百分比："$5}' | tr -d " ")
 Inode=$(df -i / | sed '1d' | awk '{print "总量："$2,"，已使用："$3,"，剩余："$4,"，百分比："$5}' | tr -d " ")
 Memory=$(free -gh | awk '/^(Mem|内存)/{print "总内存："$2,"，已使用："$3,"，剩余："$4}' | tr -d " ")
@@ -50,7 +50,7 @@ if [ "$System_Bit" == "64" ];then
 elif [ "$System_Bit" == "32" ];then
 	Architecture="32位"
 else
-	Architecture="未知！"
+	Architecture="未知系统位数！"
 fi
 
 
