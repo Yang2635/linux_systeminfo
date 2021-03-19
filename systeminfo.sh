@@ -57,7 +57,7 @@ fi
 
 #SELinux检测
 SELinux_Test=$(getenforce 2>/dev/null)
-if [ "$SELinux_test"];then
+if [ -z "$SELinux_test" ];then
 	SELinux_Result="未检测到SELinux！"
 elif [ "$SELinux_Test" == "Permissive" ];then
 	SELinux_Result="SELinux已临时关闭！"
@@ -65,8 +65,6 @@ elif [ "$SELinux_Test" == "Enforcing" ];then
 	SELinux_Result="SELinux已开启！"
 elif [ "$SELinux_Test" == "Disabled" ];then
 	SELinux_Result="SELinux已永久关闭！"
-elif [ -z "$SELinux_test" ];then
-	SELinux_Result="未找到SELinux信息！"
 fi
 
 #System Allow Login User
