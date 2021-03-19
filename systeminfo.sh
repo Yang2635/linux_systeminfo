@@ -74,8 +74,8 @@ Shadow_Test=$(cat /etc/shadow 2>/dev/null)
 if [ -z "${Shadow_Test}" ];then
 	Allow_Login="您没有权限查看可登录系统的用户数！"
 else
-	Allow_LoginUserNum=$(cat /etc/shadow | awk -F ':' '!/(\*|!!)/{print $1}' | wc -w)
-	#Allow_LoginUser=$(cat /etc/shadow | awk -F ':' '!/(\*|!!)/{print $1}' | awk  '{for(i=1;i<=NR;i++)printf $i" "}')
+	Allow_LoginUserNum=$(cat /etc/shadow | awk -F ':' '!/(\*|!!|!)/{print $1}' | wc -w)
+	#Allow_LoginUser=$(cat /etc/shadow | awk -F ':' '!/(\*|!!|!)/{print $1}' | awk  '{for(i=1;i<=NR;i++)printf $i" "}')
 	Allow_Login="有 ${Allow_LoginUserNum} 个可登录终端的用户！"
 fi
 
