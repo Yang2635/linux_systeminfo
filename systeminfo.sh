@@ -57,7 +57,7 @@ fi
 
 #SELinux检测
 SELinux_Test=$(getenforce 2>/dev/null)
-if [ -z "$SELinux_test" ];then
+if [ -z "$SELinux_Test" ];then
 	SELinux_Result="未检测到SELinux！"
 elif [ "$SELinux_Test" == "Permissive" ];then
 	SELinux_Result="SELinux已临时关闭！"
