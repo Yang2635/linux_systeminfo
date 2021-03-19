@@ -41,15 +41,19 @@ else
 	else
 		Release="未知的操作系统或脚本未适配该系统！"
 	fi
-
-	#Architecture
-	if [ $(hostnamectl 2>/dev/null | awk -F ': ' '/Architecture/{print $2}')==x86-64 ];then
-		Architecture="64位"
-	else
-		Architecture="32位"
-	fi
-
 fi
+
+#Architecture
+System_Bit=$(getconf LONG_BIT)
+if [ "$System_Bit" == "64" ];then
+	Architecture="64位"
+elif [ "$System_Bit" == "32" ];then
+	Architecture="32位"
+else
+	Architecture="未知！"
+fi
+
+
 
 #SELinux检测
 SELinux_Test=$(getenforce 2>/dev/null)
