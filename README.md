@@ -23,7 +23,7 @@ yum update -y && yum install wget -y
 ```
 Debian、Ubuntu：
 ```shell
-apt update && apt install wget -y
+apt update -y && apt install wget -y
 ```
 
 一键脚本下载执行
@@ -36,5 +36,4 @@ wget --no-check-certificate https://raw.githubusercontent.com/Yang2635/linux_scr
 
 显示效果如图所示：
 
-![图片](https://user-images.githubusercontent.com/60431848/111312569-61dea980-869a-11eb-923c-e602b895b888.png)
-
+![图片](https://user-images.githubusercontent.com/60431848/111731743-10f3ce80-88af-11eb-8a95-3fb6d4cd82e8.png)
