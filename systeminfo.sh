@@ -1,39 +1,39 @@
 #!/bin/bash
 
-#-----------------------------------------------------------
+################ Print System Info ################
 # author：Yang2635
 # blog_site：https://www.yfriend.xyz
 # slogan：初次见面，欢迎来访！
 # 
 # 脚本仅适配了CentOS、Debian、Ubuntu系统
-#-----------------------------------------------------------------
+#
+##############################################
 
 #Basic Info
 User=$(whoami)
 User_id=$(id | sed "s/[(][^)]*[)]//g" | awk '{print $1"，"$2"，"$3}')
 Disk=$(df -h / | sed '1d' | awk '{print "总量："$2,"，已使用："$3,"，剩余："$4,"，百分比："$5}' | tr -d " ")
 Inode=$(df -i / | sed '1d' | awk '{print "总量："$2,"，已使用："$3,"，剩余："$4,"，百分比："$5}' | tr -d " ")
-Memory=$(free -gh | awk '/^(Mem|内存)/{print "总内存："$2,"，已使用："$3,"，剩余："$4}' | tr -d " ")
-Swap=$(free -gh | awk '/^(Swap|交换)/{print "总存储："$2,"，已使用："$3,"，剩余："$4}' | tr -d " ")
+Memory=$(free -gh | awk '/^(Mem|内存)/{print "总量："$2"，已使用："$3"，剩余："$4"\n\t\t   shared："$5"，buff/cache："$6"，available："$7}' | tr -d 'i')
+Swap=$(free -gh | awk '/^(Swap|交换)/{print "总量："$2,"，已使用："$3,"，剩余："$4}' | tr -d " |i" || echo "未检测到Swap！")
 Temp=$(du -sh /tmp 2>/dev/null | cut -f1)
 Load_average=$(cat /proc/loadavg | awk '{print "1分钟："$1,"，5分钟："$2,"，15分钟："$3}')
 Login_Users=$(users | wc -w)
-Login_IP=$(who /var/log/wtmp | sed -n '$p' | sed  "s/[()]//g" | awk '{print $NF}')
+Login_IP=$(who /var/log/wtmp |  sed -n '$p' | sed  "s/[()]//g" | awk '{print $NF}')
 System_Users="系统共有 `cat /etc/passwd  | wc -l` 个用户"
 
 #System Release
 Hostnamectl_Test=$(hostnamectl 2>/dev/null)
+Kernel=$(uname -sr)
 if [ -z "$Hostnamectl_Test" ];then
-	Static_Hostname="未知的操作系统或脚本未适配该系统！"
-	System="未知的操作系统或脚本未适配该系统！"
-	Kernel="未知的操作系统或脚本未适配该系统！"
-	Release="未知的操作系统或脚本未适配该系统！"
+	Static_Hostname="未知的系统静态用户名或脚本未适配该系统！"
+	System="未知的系统版本或脚本未适配该系统！"
+	Release="未知的系统版本号或脚本未适配该系统！"
+	Virtualization="未知的系统所使用的虚拟平台或脚本未适配该系统！"
 else
-	Static_Hostname=$(hostnamectl 2>/dev/null | grep "Static" | awk -F ': ' '{print $2}')
-	System=$(hostnamectl 2>/dev/null | grep "System" | awk -F ': ' '{print $2}')
-	Kernel=$(hostnamectl 2>/dev/null | grep "Kernel" | awk -F ': ' '{print $2}')
-
-	System_info=$(hostnamectl 2>/dev/null | awk -F ': ' '/System/{print $2}'| awk '{print $1}')
+	Static_Hostname=$(echo -e "${Hostnamectl_Test}\n" | grep "Static" | awk -F ': ' '{print $2}')
+	System=$(echo -e "${Hostnamectl_Test}\n" | grep "System" | awk -F ': ' '{print $2}')
+	System_info=$(echo -e "${Hostnamectl_Test}\n" | awk -F ': ' '/System/{print $2}'| awk '{print $1}')
 	if [  "$System_info" == "CentOS" ];then
 		Release=$(cat /etc/redhat-release 2>/dev/null | awk '{print $(NF-1)}')
 	elif [[ "$System_info" == "Debian"  ||  "$System_info" == "Ubuntu" ]];then
@@ -41,19 +41,16 @@ else
 	else
 		Release="未知的操作系统或脚本未适配该系统！"
 	fi
+	Virtualization_Test=$(echo -e "${Hostnamectl_Test}\n" | grep "Virtualization" 2>/dev/null )
+	if [ -z "$Virtualization_Test" ];then
+		Virtualization="未检测到当前系统所用虚拟平台！"
+	else
+		Virtualization=$(echo -e "${Hostnamectl_Test}\n" | awk -F ': ' '/Virtualization/{print $2}')
+	fi
 fi
 
 #Architecture
-System_Bit=$(getconf LONG_BIT)
-if [ "$System_Bit" == "64" ];then
-	Architecture="64位"
-elif [ "$System_Bit" == "32" ];then
-	Architecture="32位"
-else
-	Architecture="未知系统位数！"
-fi
-
-
+System_Bit="`getconf LONG_BIT` 位操作系统"
 
 #SELinux检测
 SELinux_Test=$(getenforce 2>/dev/null)
@@ -70,11 +67,11 @@ fi
 #System Allow Login User
 Shadow_Test=$(cat /etc/shadow 2>/dev/null)
 if [ -z "${Shadow_Test}" ];then
-	Allow_Login="您没有权限查看可登录系统的用户数！"
+	Allow_Login="您没有权限查看可密码登录终端系统的用户数与用户！"
 else
-	Allow_LoginUserNum=$(cat /etc/shadow | awk -F ':' '!/(\*|!!|!)/{print $1}' | wc -w)
-	#Allow_LoginUser=$(cat /etc/shadow | awk -F ':' '!/(\*|!!|!)/{print $1}' | awk  '{for(i=1;i<=NR;i++)printf $i" "}')
-	Allow_Login="有 ${Allow_LoginUserNum} 个可登录终端的用户！"
+	Allow_LoginUserNum=$(echo -e "${Shadow_Test}\n"| awk -F ':' '!/(\*|!!|!)/{print $1}' | wc -w)
+	Allow_LoginUser=$(echo -e "${Shadow_Test}\n" | awk -F ':' '!/(\*|!!|!)/{print $1}' | xargs)
+	Allow_Login="有 ${Allow_LoginUserNum} 个可密码登录终端的用户！分别是：${Allow_LoginUser}"
 fi
 
 
@@ -101,7 +98,7 @@ Run_time_mins=$((Uptime/60%60))
 Run_time_Secs=$((Uptime%60))
 
 #Process
-Process=$(echo "正在运行 "`ps -A | wc -l`" 个进程")
+Process=$(echo "正在运行 `ps -A | wc -l` 个进程")
 Max_Proc=$(/sbin/sysctl -n kernel.pid_max 2>/dev/null)
 
 #home分区
@@ -191,20 +188,22 @@ echo -e "
      当前登录用户：${User}
        当前用户id：${User_id}
    当前登录用户数：${Login_Users} User(s)
-     系统用户统计：${System_Users}，${Allow_Login}
+     系统用户统计：${System_Users}
+ 可密码登录用户数：${Allow_Login}
            私网IP：${Network_IP}
       SELinux信息：${SELinux_Result}
    系统静态用户名：${Static_Hostname}
          系统版本：${System}
        系统版本号：${Release}
      系统内核版本：${Kernel}
+ 系统所用虚拟平台：${Virtualization}
             Nginx：${Nginx_version}
             MySQL：${MySQL_version}
               PHP：${PHP_version}
              JAVA：${Java_version}
           CPU型号：${CPU_Info}
       CPU个数信息：${CPU_PhysicalCoreNum} 个物理CPU，每个物理CPU有 ${CPU_CoreNum} 个物理核心数，共 ${CPU_ThreadNum} 个线程
-         系统位数：${Architecture}
+         系统位数：${System_Bit}
          eth0流量：${Network_eth0}
            lo流量：${Network_lo}
          系统负载：${Load_average}
