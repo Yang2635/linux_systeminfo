@@ -1,5 +1,6 @@
 #!/bin/bash
-
+PATH=/bin:/sbin:/usr/bin:/usr/sbin:/usr/local/bin:/usr/local/sbin:~/bin
+export PATH
 ################ Print System Info ################
 # author：Yang2635
 # blog_site：https://www.yfriend.xyz
@@ -17,7 +18,7 @@ Inode=$(df -i / | sed '1d' | awk '{print "总量："$2,"，已使用："$3,"，�
 Memory=$(free -gh | grep -n "^[Mem|内存]" | tr -d 'i' | awk '{print "总量："$2"，已使用："$3"，剩余："$4"\n\t\t   shared："$5"，buff/cache："$6"，available："$7}')
 Swap=$(free -gh | awk '/^(Swap|交换)/{print "总量："$2,"，已使用："$3,"，剩余："$4}' | tr -d " |i" || echo "未检测到Swap！")
 Temp=$(du -sh /tmp 2>/dev/null | cut -f1)
-Load_average=$(cat /proc/loadavg | awk '{print "1分钟："$1,"，5分钟："$2,"，15分钟："$3}')
+Load_average=$(awk '{print "1分钟："$1,"，5分钟："$2,"，15分钟："$3}' /proc/loadavg)
 Login_Users=$(users | wc -w)
 Login_IP=$(who /var/log/wtmp |  sed -n '$p' | sed  "s/[()]//g" | awk '{print $NF}')
 System_Users="系统共有 `cat /etc/passwd  | wc -l` 个用户"
@@ -37,7 +38,7 @@ else
 	if [  "$System_info" == "CentOS" ];then
 		Release=$(cat /etc/redhat-release 2>/dev/null | awk '{print $(NF-1)}')
 	elif [[ "$System_info" == "Debian"  ||  "$System_info" == "Ubuntu" ]];then
-		Release=$(cat /etc/os-release | tr -d "\"" | awk -F '=' '/^VERSION=/{print $2}')
+		Release=$(cat /etc/os-release | tr -d "\"" | awk -F '=' '/^VERSION_ID=/{print $2}')
 	else
 		Release="未知的操作系统或脚本未适配该系统！"
 	fi
@@ -79,19 +80,19 @@ fi
 Date=$(date "+%Y-%m-%d %H:%M:%S")
 
 #CPU INFO
-CPU_Num=$(cat /proc/cpuinfo | grep "name" | cut -f2 -d ':' | uniq | wc -l)
+CPU_Num=$(grep "name" /proc/cpuinfo | cut -f2 -d ':' | uniq | wc -l)
 if [ $CPU_Num -eq 1 ];then
-	CPU_Info=$(cat /proc/cpuinfo | grep "name" | awk -F ': ' '{print $2}' | uniq)
+	CPU_Info=$(grep "name" /proc/cpuinfo | awk -F ': ' '{print $2}' | uniq)
 else
-	CPU_Info=$(cat /proc/cpuinfo | grep "name" | uniq | sed -n '1,$p' | awk -F ': ' '{print $2" | "}' | tr -d "\n")
+	CPU_Info=$(grep "name" /proc/cpuinfo | uniq | sed -n '1,$p' | awk -F ': ' '{print $2" | "}' | tr -d "\n")
 fi
 
-CPU_PhysicalCoreNum=$(cat /proc/cpuinfo | grep "physical id" | sort | uniq | wc -l)
-CPU_CoreNum=$(cat /proc/cpuinfo | grep "cpu cores" | uniq | awk -F ': ' '{print $2}')
-CPU_ThreadNum=$(cat /proc/cpuinfo | grep "^processor"| wc -l)
+CPU_PhysicalCoreNum=$(grep "physical id" /proc/cpuinfo | sort | uniq | wc -l)
+CPU_CoreNum=$(grep "cpu cores" /proc/cpuinfo | uniq | awk -F ': ' '{print $2}')
+CPU_ThreadNum=$(grep "^processor" /proc/cpuinfo | wc -l)
 
 #System Load
-Uptime=$(cat /proc/uptime | cut -f1 -d.)
+Uptime=$(cut -f1 -d. /proc/uptime)
 Run_Day=$((Uptime/60/60/24))
 Run_time_hour=$((Uptime/60/60%24))
 Run_time_mins=$((Uptime/60%60))
