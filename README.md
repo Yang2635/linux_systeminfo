@@ -30,7 +30,7 @@ apt update -y && apt install wget -y
 一键脚本下载执行：
 
 ```shell
-wget --no-check-certificate https://raw.githubusercontent.com/Yang2635/linux_scripts/main/systeminfo.sh && chmod +x systeminfo.sh && bash systeminfo.sh
+wget --no-check-certificate https://raw.githubusercontent.com/Yang2635/linux_systeminfo/main/systeminfo.sh && chmod +x systeminfo.sh && bash systeminfo.sh
 ```
 
 
