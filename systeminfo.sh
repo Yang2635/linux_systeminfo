@@ -1,5 +1,5 @@
 #!/bin/bash
-PATH=/bin:/sbin:/usr/bin:/usr/sbin:/usr/local/bin:/usr/local/sbin:~/bin
+PATH=$PATH:/bin:/sbin:/usr/bin:/usr/sbin:/usr/local/bin:/usr/local/sbin:~/bin
 export PATH
 ################ Print System Info ################
 # author：Yang2635
@@ -8,15 +8,15 @@ export PATH
 # 
 # 脚本仅适配了CentOS、Debian、Ubuntu系统
 #
-##############################################
+###################################################
 
 #Basic Info
 User=$(whoami)
 User_id=$(id | sed "s/[(][^)]*[)]//g" | awk '{print $1"，"$2"，"$3}')
 Disk=$(df -h / | sed '1d' | awk '{print "总量："$2,"，已使用："$3,"，剩余："$4,"，百分比："$5}' | tr -d " ")
 Inode=$(df -i / | sed '1d' | awk '{print "总量："$2,"，已使用："$3,"，剩余："$4,"，百分比："$5}' | tr -d " ")
-Memory=$(free -gh | grep -n "^[Mem|内存]" | tr -d 'i' | awk '{print "总量："$2"，已使用："$3"，剩余："$4"\n\t\t   shared："$5"，buff/cache："$6"，available："$7}')
-Swap=$(free -gh | awk '/^(Swap|交换)/{print "总量："$2,"，已使用："$3,"，剩余："$4}' | tr -d " |i" || echo "未检测到Swap！")
+Memory=$(free -gh | grep -E "^Mem|^内存" | tr -d 'i' | awk '{print "总量："$2"，已使用："$3"，剩余："$4"\n\t\t   shared："$5"，buff/cache："$6"，available："$7}')
+Swap=$(free -gh | awk '/^(\<Swap\>|\<交换\>)/{print "总量："$2,"，已使用："$3,"，剩余："$4}' | tr -d " |i")
 Temp=$(du -sh /tmp 2>/dev/null | cut -f1)
 Load_average=$(awk '{print "1分钟："$1,"，5分钟："$2,"，15分钟："$3}' /proc/loadavg)
 Login_Users=$(users | wc -w)
@@ -91,7 +91,7 @@ CPU_PhysicalCoreNum=$(grep "physical id" /proc/cpuinfo | sort | uniq | wc -l)
 CPU_CoreNum=$(grep "cpu cores" /proc/cpuinfo | uniq | awk -F ': ' '{print $2}')
 CPU_ThreadNum=$(grep "^processor" /proc/cpuinfo | wc -l)
 
-#System Load
+#System Uptime
 Uptime=$(cut -f1 -d. /proc/uptime)
 Run_Day=$((Uptime/60/60/24))
 Run_time_hour=$((Uptime/60/60%24))
@@ -100,14 +100,14 @@ Run_time_Secs=$((Uptime%60))
 
 #Process
 Process=$(echo "正在运行 `ps -A | wc -l` 个进程")
-Max_Proc=$(/sbin/sysctl -n kernel.pid_max 2>/dev/null)
+Max_Proc=$(sysctl -n kernel.pid_max 2>/dev/null)
 
 #home分区
 Home=$(df -h | grep "/home" 2>/dev/null)
 if [ -z "$Home" ];then
 	Disk_Home="home目录非独立挂载！"
 else
-	Disk_Home=$(df -h | grep "/home" | awk '{print "总量："$2,"，已使用："$3,"，剩余："$4,"，百分比："$5}' | tr -d " ")
+	Disk_Home=$(echo "$Home" | awk '{print "总量："$2,"，已使用："$3,"，剩余："$4,"，百分比："$5}' | tr -d " ")
 fi
 
 #eth0网卡流量与IO流量
@@ -149,7 +149,7 @@ elif [ $Ifconfig_test -ne 0 ];then
 fi
 
 #Private IP address
-Network_IP=$(/sbin/ip route get 8.8.8.8 | head -1 | cut -d' ' -f7)
+Network_IP=$(ip route get 8.8.8.8 | head -1 | cut -d' ' -f7)
 
 #MySQL
 Mysql_Path=$(which mysql 2>/dev/null)
