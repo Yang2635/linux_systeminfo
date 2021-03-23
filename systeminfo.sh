@@ -16,7 +16,7 @@ User_id=$(id | sed "s/[(][^)]*[)]//g" | awk '{print $1"，"$2"，"$3}')
 Disk=$(df -h / | sed '1d' | awk '{print "总量："$2,"，已使用："$3,"，剩余："$4,"，百分比："$5}' | tr -d " ")
 Inode=$(df -i / | sed '1d' | awk '{print "总量："$2,"，已使用："$3,"，剩余："$4,"，百分比："$5}' | tr -d " ")
 Memory=$(free -gh | grep -E "^Mem|^内存" | tr -d 'i' | awk '{print "总量："$2"，已使用："$3"，剩余："$4"\n\t\t   shared："$5"，buff/cache："$6"，available："$7}')
-Swap=$(free -gh | grep -E "^Swap|^内存" | awk '{print "总量："$2,"，已使用："$3,"，剩余："$4}' | tr -d " |i")
+Swap=$(free -gh | grep -E "^Swap|^交换" | awk '{print "总量："$2,"，已使用："$3,"，剩余："$4}' | tr -d " |i")
 Temp=$(du -sh /tmp 2>/dev/null | cut -f1)
 Load_average=$(awk '{print "1分钟："$1,"，5分钟："$2,"，15分钟："$3}' /proc/loadavg)
 Login_Users=$(users | wc -w)
@@ -70,8 +70,8 @@ Shadow_Test=$(cat /etc/shadow 2>/dev/null)
 if [ -z "${Shadow_Test}" ];then
 	Allow_Login="您没有权限查看可密码登录终端系统的用户数与用户！"
 else
-	Allow_LoginUserNum=$(echo -e "${Shadow_Test}\n"| awk -F ':' '!/(\*|!!|!)/{print $1}' | wc -w)
-	Allow_LoginUser=$(echo -e "${Shadow_Test}\n" | awk -F ':' '!/(\*|!!|!)/{print $1}' | xargs)
+	Allow_LoginUserNum=$(echo -e "${Shadow_Test}\n"| awk -F ':' '$2~/^\$.{1,2}\$/{print $1}' | wc -w)
+	Allow_LoginUser=$(echo -e "${Shadow_Test}\n" | awk -F ':' '$2~/^\$.{1,2}\$/{print $1}' | xargs)
 	Allow_Login="有 ${Allow_LoginUserNum} 个可密码登录终端的用户！分别是：${Allow_LoginUser}"
 fi
 
