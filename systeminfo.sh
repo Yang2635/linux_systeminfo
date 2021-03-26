@@ -77,7 +77,7 @@ if [ -z "${Shadow_Test}" ];then
 	Allow_Login="您没有权限查看可密码登录终端系统的用户数与用户！"
 else
 	Allow_LoginUserNum=$(awk -F ':' '$2~/^\$.*\$/{print $1}' /etc/shadow | wc -w)
-	Allow_LoginUser=$(awk -F ':' '$2~/^\$.{*\$/{print $1}' /etc/shadow | xargs)
+	Allow_LoginUser=$(awk -F ':' '$2~/^\$.*\$/{print $1}' /etc/shadow | xargs)
 	Allow_Login="有 ${Allow_LoginUserNum} 个可密码登录终端的用户！分别是：${Allow_LoginUser}"
 fi
 
