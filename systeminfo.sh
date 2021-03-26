@@ -1,14 +1,20 @@
 #!/bin/bash
-PATH=$PATH:/bin:/sbin:/usr/bin:/usr/sbin:/usr/local/bin:/usr/local/sbin:~/bin
+PATH="$PATH:/bin:/sbin:/usr/bin:/usr/sbin:/usr/local/bin:/usr/local/sbin:~/bin"
 export PATH
-################ Print System Info ################
+################ Print System Info ########################
 # author：Yang2635
 # blog_site：https://www.yfriend.xyz
-# slogan：初次见面，欢迎来访！
-# 
-# 脚本仅适配了CentOS、Debian、Ubuntu系统
 #
-###################################################
+# Github：https://github.com/Yang2635/linux_systeminfo
+#
+############################################################
+
+# GetPackManager
+if [ -f "/usr/bin/yum" ] && [ -f "/etc/yum.conf" ];then
+	PM="yum"
+elif [ -f "/usr/bin/apt-get" ] && [ -f "/usr/bin/dpkg" ];then
+	PM="apt-get"
+fi
 
 #Basic Info
 User=$(whoami)
@@ -35,9 +41,9 @@ else
 	Static_Hostname=$(echo -e "${Hostnamectl_Test}\n" | grep "Static" | awk -F ': ' '{print $2}')
 	System=$(echo -e "${Hostnamectl_Test}\n" | grep "System" | awk -F ': ' '{print $2}')
 	System_info=$(echo -e "${Hostnamectl_Test}\n" | awk -F ': ' '/System/{print $2}'| awk '{print $1}')
-	if [  "$System_info" == "CentOS" ];then
-		Release=$(cat /etc/redhat-release 2>/dev/null | awk '{print $(NF-1)}')
-	elif [[ "$System_info" == "Debian"  ||  "$System_info" == "Ubuntu" ]];then
+	if [  "${PM}" == "yum" ];then
+		Release=$(awk '{print $(NF-1)}' /etc/redhat-release)
+	elif [ "${PM}" == "apt-get" ];then
 		Release=$(cat /etc/os-release | tr -d "\"" | awk -F '=' '/^VERSION_ID=/{print $2}')
 	else
 		Release="未知的操作系统或脚本未适配该系统！"
@@ -70,8 +76,8 @@ Shadow_Test=$(cat /etc/shadow 2>/dev/null)
 if [ -z "${Shadow_Test}" ];then
 	Allow_Login="您没有权限查看可密码登录终端系统的用户数与用户！"
 else
-	Allow_LoginUserNum=$(echo -e "${Shadow_Test}\n"| awk -F ':' '$2~/^\$.{1,2}\$/{print $1}' | wc -w)
-	Allow_LoginUser=$(echo -e "${Shadow_Test}\n" | awk -F ':' '$2~/^\$.{1,2}\$/{print $1}' | xargs)
+	Allow_LoginUserNum=$(awk -F ':' '$2~/^\$.*\$/{print $1}' /etc/shadow | wc -w)
+	Allow_LoginUser=$(awk -F ':' '$2~/^\$.{*\$/{print $1}' /etc/shadow | xargs)
 	Allow_Login="有 ${Allow_LoginUserNum} 个可密码登录终端的用户！分别是：${Allow_LoginUser}"
 fi
 
@@ -84,12 +90,12 @@ CPU_Num=$(grep "name" /proc/cpuinfo | cut -f2 -d ':' | uniq | wc -l)
 if [ $CPU_Num -eq 1 ];then
 	CPU_Info=$(grep "name" /proc/cpuinfo | awk -F ': ' '{print $2}' | uniq)
 else
-	CPU_Info=$(grep "name" /proc/cpuinfo | uniq | sed -n '1,$p' | awk -F ': ' '{print $2" | "}' | tr -d "\n")
+	CPU_Info=$(grep "name" /proc/cpuinfo | uniq | sed -n '1,$p' | awk -F ': ' '{print $2" |"}' | xargs)
 fi
 
 CPU_PhysicalCoreNum=$(grep "physical id" /proc/cpuinfo | sort | uniq | wc -l)
 CPU_CoreNum=$(grep "cpu cores" /proc/cpuinfo | uniq | awk -F ': ' '{print $2}')
-CPU_ThreadNum=$(grep "^processor" /proc/cpuinfo | wc -l)
+CPU_ThreadNum=$(getconf _NPROCESSORS_ONLN)
 
 #System Uptime
 Uptime=$(cut -f1 -d. /proc/uptime)
@@ -114,37 +120,30 @@ fi
 Ifconfig_test=$(ifconfig &>/dev/null;echo $?)
 Ifconfig_eth0=$(ifconfig eth0 &>/dev/null;echo $?)
 
-if [ $Ifconfig_test -eq 0 ] && [ $Ifconfig_eth0 -eq 0 ];then
+Network_TrafficEth0(){
 	Network_eth0=$(ifconfig eth0 | tr -d "()" | awk '/bytes/{printf $(NF-1) " " $NF "|"}' | awk -F '|' '{print "已接收："$1,"，已发送："$2}')
+}
+Network_TrafficLo(){
 	Network_lo=$(ifconfig lo | tr -d "()" | awk '/bytes/{printf $(NF-1) " " $NF "|"}' | awk -F '|' '{print "已接收："$1,"，已发送："$2}')
+}
+
+if [ $Ifconfig_test -eq 0 ] && [ $Ifconfig_eth0 -eq 0 ];then
+	Network_TrafficEth0
+	Network_TrafficLo
 elif [ $Ifconfig_test -eq 0 ] && [ $Ifconfig_eth0 -ne 0 ];then
 	Network_eth0="eth0网卡设备未找到！"
-	Network_lo=$(ifconfig lo | tr -d "()" | awk '/bytes/{printf $(NF-1) " " $NF "|"}' | awk -F '|' '{print "已接收："$1,"，已发送："$2}')
+	Network_TrafficLo
 elif [ $Ifconfig_test -ne 0 ];then
-	if [ "$System_info" == "CentOS" ];then
-		yum install net-tools -y &>/dev/null
-		if [ $(echo $?) -eq 0 ] && [ $(ifconfig eth0 &>/dev/null;echo $?) -eq 0 ];then
-			Network_eth0=$(ifconfig eth0 | tr -d "()" | awk '/bytes/{printf $(NF-1) " " $NF "|"}' | awk -F '|' '{print "已接收："$1,"，已发送："$2}')
-			Network_lo=$(ifconfig lo | tr -d "()" | awk '/bytes/{printf $(NF-1) " " $NF "|"}' | awk -F '|' '{print "已接收："$1,"，已发送："$2}')
-		elif [ $(echo $?) -eq 0 ] && [ $(ifconfig eth0 &>/dev/null;echo $?) -ne 0 ];then
-			Network_eth0="net-tools工具安装成功但eth0网卡设备未找到！"
-			Network_lo=$(ifconfig lo | tr -d "()" | awk '/bytes/{printf $(NF-1) " " $NF "|"}' | awk -F '|' '{print "已接收："$1,"，已发送："$2}')
-		else
-			Network_eth0="net-tools工具安装失败！"
-			Network_lo="net-tools工具安装失败！"
-		fi
-	elif [[ "$System_info" == "Debian"  ||  "$System_info" == "Ubuntu" ]];then
-		apt install net-tools -y &>/dev/null
-		if [ $(echo $?) -eq 0 ] && [ $(ifconfig eth0 &>/dev/null;echo $?) -eq 0 ];then
-			Network_eth0=$(ifconfig eth0 | tr -d "()" | awk '/bytes/{printf $(NF-1) " " $NF "|"}' | awk -F '|' '{print "已接收："$1,"，已发送："$2}')
-			Network_lo=$(ifconfig lo | tr -d "()" | awk '/bytes/{printf $(NF-1) " " $NF "|"}' | awk -F '|' '{print "已接收："$1,"，已发送："$2}')
-		elif [ $(echo $?) -eq 0 ] && [ $(ifconfig eth0 &>/dev/null;echo $?) -ne 0 ];then
-			Network_eth0="net-tools工具安装成功但eth0网卡设备未找到！"
-			Network_lo=$(ifconfig lo | tr -d "()" | awk '/bytes/{printf $(NF-1) " " $NF "|"}' | awk -F '|' '{print "已接收："$1,"，已发送："$2}')
-		else
-			Network_eth0="net-tools工具安装失败！"
-			Network_lo="net-tools工具安装失败！"
-		fi
+	${PM} install net-tools -y &>/dev/null
+	if [ $(echo $?) -eq 0 ] && [ $(ifconfig eth0 &>/dev/null;echo $?) -eq 0 ];then
+		Network_TrafficEth0
+		Network_TrafficLo
+	elif [ $(echo $?) -eq 0 ] && [ $(ifconfig eth0 &>/dev/null;echo $?) -ne 0 ];then
+		Network_eth0="net-tools工具安装成功但eth0网卡设备未找到！"
+		Network_TrafficLo
+	else
+		Network_eth0="net-tools工具安装失败！"
+		Network_lo="net-tools工具安装失败！"
 	fi
 fi
 
