@@ -10,54 +10,116 @@ export PATH
 ############################################################
 
 # GetPackManager
-if [ -f "/usr/bin/yum" ] && [ -f "/etc/yum.conf" ];then
+if [ -f "/usr/bin/yum" ] && [ -f "/etc/yum.conf" ]; then
 	PM="yum"
-elif [ -f "/usr/bin/apt-get" ] && [ -f "/usr/bin/dpkg" ];then
+elif [ -f "/usr/bin/apt-get" ] && [ -f "/usr/bin/dpkg" ]; then
 	PM="apt-get"
 fi
 
-#Basic Info
+#User_Info
 User=$(whoami)
 User_id=$(id | sed "s/[(][^)]*[)]//g" | awk '{print $1"，"$2"，"$3}')
-Disk=$(df -h / | sed '1d' | awk '{print "总量："$2,"，已使用："$3,"，剩余："$4,"，百分比："$5}' | tr -d " ")
-Inode=$(df -i / | sed '1d' | awk '{print "总量："$2,"，已使用："$3,"，剩余："$4,"，百分比："$5}' | tr -d " ")
-Memory=$(free -gh | grep -E "^Mem|^内存" | tr -d 'i' | awk '{print "总量："$2"，已使用："$3"，剩余："$4"\n\t\t   shared："$5"，buff/cache："$6"，available："$7}')
-Swap=$(free -gh | grep -E "^Swap|^交换" | awk '{print "总量："$2,"，已使用："$3,"，剩余："$4}' | tr -d " |i")
-Temp=$(du -sh /tmp 2>/dev/null | cut -f1)
-Load_average=$(awk '{print "1分钟："$1,"，5分钟："$2,"，15分钟："$3}' /proc/loadavg)
-Login_Users=$(users | wc -w)
-Login_IP=$(who /var/log/wtmp |  sed -n '$p' | sed  "s/[()]//g" | awk '{print $NF}')
 System_Users="系统共有 `cat /etc/passwd  | wc -l` 个用户"
 
-#System Release
-Hostnamectl_Test=$(hostnamectl 2>/dev/null)
-Kernel=$(uname -sr)
-if [ -z "$Hostnamectl_Test" ];then
-	Static_Hostname="未知的系统静态用户名或脚本未适配该系统！"
-	System="未知的系统版本或脚本未适配该系统！"
-	Release="未知的系统版本号或脚本未适配该系统！"
-	Virtualization="未知的系统所使用的虚拟平台或脚本未适配该系统！"
+#Disk_Info
+Disk=$(df -h / 2>/dev/null | sed '1d' | awk '{printf("总量：%s，已使用：%s，剩余：%s，使用率：%s",$2,$3,$4,$5)}')
+Inode=$(df -i -h / 2>/dev/null | sed '1d' | awk '{printf("总量：%s，已使用：%s，剩余：%s，使用率：%s",$2,$3,$4,$5)}')
+
+Temp=$(du -sh /tmp 2>/dev/null | cut -f1)
+Load_average=$(awk '{printf("1分钟：%s，5分钟：%s，15分钟：%s",$1,$2,$3)}' /proc/loadavg)
+
+#System Run Level
+System_RunLvel(){
+if [[ "${Runlevel_Test}" =~ "chroot" ]];then
+	Runlevel="当前系统运行于Chroot环境中！"
+elif [ "${Runlevel_Test}" == "unknown" ];then
+	Runlevel="当前脚本可能在容器环境中执行！"
 else
-	Static_Hostname=$(echo -e "${Hostnamectl_Test}\n" | grep "Static" | awk -F ': ' '{print $2}')
-	System=$(echo -e "${Hostnamectl_Test}\n" | grep "System" | awk -F ': ' '{print $2}')
-	System_info=$(echo -e "${Hostnamectl_Test}\n" | awk -F ': ' '/System/{print $2}'| awk '{print $1}')
-	if [  "${PM}" == "yum" ];then
-		Release=$(awk '{print $(NF-1)}' /etc/redhat-release)
-	elif [ "${PM}" == "apt-get" ];then
-		Release=$(cat /etc/os-release | tr -d "\"" | awk -F '=' '/^VERSION_ID=/{print $2}')
-	else
-		Release="未知的操作系统或脚本未适配该系统！"
-	fi
-	Virtualization_Test=$(echo -e "${Hostnamectl_Test}\n" | grep "Virtualization" 2>/dev/null )
-	if [ -z "$Virtualization_Test" ];then
-		Virtualization="未检测到当前系统所用虚拟平台！"
-	else
-		Virtualization=$(echo -e "${Hostnamectl_Test}\n" | awk -F ': ' '/Virtualization/{print $2}')
-	fi
+	Runlevel="未知运行级别或脚本未适配！"
+fi
+}
+
+#Login Users
+System_Login_Users(){
+Users=$(users 2>&1)
+if [[ "${Runlevel_Test}" =~ "chroot" ]] && [ -z ${Users} ];then
+	Login_Users="当前系统运行于Chroot环境中！"
+elif [[ "${Runlevel_Test}" == "unknown" ]] && [ -z ${Users} ];then
+	Login_Users="当前脚本可能在容器环境中执行！"
+elif [ -z ${Users} ];then
+	Login_Users="当前无登录用户！"
+fi
+}
+
+#Login IP
+System_Login_IP(){
+Login_IP_Test=$(who /var/log/wtmp)
+if [[ "${Runlevel_Test}" =~ "chroot" ]] && [ -z ${Login_IP_Test} ];then
+	Login_IP="当前系统运行于Chroot环境中！"
+elif [ "${Runlevel_Test}" == "unknown" ] && [ -z ${Login_IP_Test} ];then
+	Login_IP="当前脚本可能在容器环境中执行！"
+elif [ -z ${Login_IP_Test} ];then
+	Login_IP="当前无登录用户IP信息!"
+fi
+}
+
+Runlevel_Test=$(runlevel 2>&1)
+if [ $? -ne 0 ] || [[ -z `runlevel 2>/dev/null` ]];then
+	System_RunLvel
+	System_Login_Users
+	System_Login_IP
+else
+	Runlevel=$(echo "${Runlevel_Test}" | awk '{print $2}')
+	Login_Users="`users | wc -w` User(s)"
+	Login_IP=$(who /var/log/wtmp |  sed -n '$p' | sed  "s/[()]//g" | awk '{print $NF}')
 fi
 
-#Architecture
-System_Bit="`getconf LONG_BIT` 位操作系统"
+#System Info
+Kernel=$(uname -sr)
+Static_Hostname=$(hostname)
+if [ "${PM}" == "yum" ];then
+	Release=$(cat /etc/*-release 2>&1 | grep -Eo "[0-9]{,2}\.[0-9]{,2}\.[0-9]{,4}" | uniq)
+elif [ "${PM}" == "apt-get" ];then
+	Release=$(cat /etc/*-release | tr -d "\"" | awk -F '=' '/^VERSION_ID/{print $2}')
+else
+	Release="未知的系统版本号或脚本未适配该系统！"
+fi
+
+System_Info(){
+cat /etc/*-release &>/dev/null
+if [ $? -eq 0 ];then
+	System=$(awk -F '=' '/^PRETTY_NAME/{print $2}' /etc/*-release | tr -d "\"")
+else
+	System="未知的系统版本或脚本未适配该系统！"
+fi
+}
+
+Hostnamectl_Comm_Test=$(hostnamectl 2>/dev/null)
+if [[ "${Runlevel_Test}" =~ [1-5]$ ]] && [ -n "${Hostnamectl_Comm_Test}" ];then
+	System=$(echo -e "${Hostnamectl_Comm_Test}\n" | grep "System" | awk -F ': ' '{print $2}')
+elif [[ "${Runlevel_Test}" =~ chroot|^unknown ]];then
+	System_Info
+else
+	System="未知的系统版本或脚本未适配该系统！"
+fi
+
+#Virtualization
+Virtualization_Test_1=$(echo -e "${Hostnamectl_Comm_Test}\n" | grep "Virtualization")
+Virtualization_Test_2=$(systemd-detect-virt)
+if [ -n "$Virtualization_Test_1" ];then
+	Virtualization=$(echo -e "${Hostnamectl_Comm_Test}\n" | awk -F ': ' '/Virtualization/{print $2}')
+elif [ -n "${Virtualization_Test_2}" ];then
+	if [ "${Virtualization_Test_2}" == "none" ];then
+		Virtualization="当前系统运行于物理设备上！"
+	else
+		Virtualization="${Virtualization_Test_2}"
+	fi
+else
+	Virtualization="未检测到当前系统所用虚拟平台！"
+fi
+
+#System Bit and Architecture
+System_Bit_Architecture="基于 `uname -m` 架构的 `getconf LONG_BIT` 位操作系统"
 
 #SELinux检测
 SELinux_Test=$(getenforce 2>/dev/null)
@@ -77,7 +139,7 @@ if [ -z "${Shadow_Test}" ];then
 	Allow_Login="您没有权限查看可密码登录终端系统的用户数与用户！"
 else
 	Allow_LoginUserNum=$(awk -F ':' '$2~/^\$.*\$/{print $1}' /etc/shadow | wc -w)
-	Allow_LoginUser=$(awk -F ':' '$2~/^\$.*\$/{print $1}' /etc/shadow | xargs)
+	Allow_LoginUser=$(awk -F ':' '$2~/^\$.{*\$/{print $1}' /etc/shadow | xargs)
 	Allow_Login="有 ${Allow_LoginUserNum} 个可密码登录终端的用户！分别是：${Allow_LoginUser}"
 fi
 
@@ -85,23 +147,44 @@ fi
 #Time
 Date=$(date "+%Y-%m-%d %H:%M:%S")
 
-#CPU INFO
+#CPU_Info
+CPU_INFO_1(){
+CPU_Model_INFO=$(lscpu 2>/dev/null | grep "^Model name" | awk -F ':' '{print $2}' | xargs)
+CPU_PhysicalCoreNum=$(lscpu 2>/dev/null | grep "^Socket(s)" | awk -F ':' '{print $2}' | tr -d " ")
+CPU_CoreNum=$(lscpu 2>/dev/null | grep "^Core(s)" | awk -F ':' '{print $2}' | tr -d " ")
+CPU_ThreadNum=$(lscpu 2>/dev/null | grep "^CPU(s)" | awk -F ':' '{print $2}' | tr -d " ")
+CPU_Basic_Info=$(echo "${CPU_PhysicalCoreNum} 个物理CPU，每个物理CPU有 ${CPU_CoreNum} 个物理核心数，共 ${CPU_ThreadNum} 个线程")
+}
+
+CPU_INFO_2(){
 CPU_Num=$(grep "name" /proc/cpuinfo | cut -f2 -d ':' | uniq | wc -l)
 if [ $CPU_Num -eq 1 ];then
-	CPU_Info=$(grep "name" /proc/cpuinfo | awk -F ': ' '{print $2}' | uniq)
+	CPU_Model_INFO=$(grep "name" /proc/cpuinfo | awk -F ': ' '{print $2}' | uniq)
 else
-	CPU_Info=$(grep "name" /proc/cpuinfo | uniq | sed -n '1,$p' | awk -F ': ' '{print $2" |"}' | xargs)
+	CPU_Model_INFO=$(grep "name" /proc/cpuinfo | uniq | sed -n '1,$p' | awk -F ': ' '{print $2" |"}' | xargs)
 fi
-
 CPU_PhysicalCoreNum=$(grep "physical id" /proc/cpuinfo | sort | uniq | wc -l)
 CPU_CoreNum=$(grep "cpu cores" /proc/cpuinfo | uniq | awk -F ': ' '{print $2}')
 CPU_ThreadNum=$(getconf _NPROCESSORS_ONLN)
+CPU_Basic_Info=$(echo "${CPU_PhysicalCoreNum} 个物理CPU，每个物理CPU有 ${CPU_CoreNum} 个物理核心数，共 ${CPU_ThreadNum} 个线程")
+}
+
+lscpu &>/dev/null
+if [ $? -eq 0 ];then
+	CPU_INFO_1
+else
+	CPU_INFO_2
+fi
+
+#Memory & Swap
+Memory=$(free -m | grep -E "^Mem|^内存" | awk '{printf("总量：%sM，已使用：%sM，剩余：%sM，使用率：%.2f%%",$2,$3,($2-$3),($3/$2*100))}')
+Swap=$(free -m | grep -E "^Swap|^交换" | awk '{printf("总量：%sM，已使用：%sM，剩余：%sM，使用率：%.2f%%",$2,$3,$4,($3/$2*100))}')
 
 #System Uptime
 Uptime=$(cut -f1 -d. /proc/uptime)
-Run_Day=$((Uptime/60/60/24))
-Run_time_hour=$((Uptime/60/60%24))
-Run_time_mins=$((Uptime/60%60))
+Run_time_Day=$((Uptime/60/60/24))
+Run_time_Hour=$((Uptime/60/60%24))
+Run_time_Mins=$((Uptime/60%60))
 Run_time_Secs=$((Uptime%60))
 
 #Process
@@ -109,46 +192,28 @@ Process=$(echo "正在运行 `ps -A | wc -l` 个进程")
 Max_Proc=$(sysctl -n kernel.pid_max 2>/dev/null)
 
 #home分区
-Home=$(df -h | grep "/home" 2>/dev/null)
+Home=$(df -h 2>/dev/null | grep "/home")
 if [ -z "$Home" ];then
 	Disk_Home="home目录非独立挂载！"
 else
-	Disk_Home=$(echo "$Home" | awk '{print "总量："$2,"，已使用："$3,"，剩余："$4,"，百分比："$5}' | tr -d " ")
+	Disk_Home=$(echo "$Home" | awk '{print "总量："$2,"，已使用："$3,"，剩余："$4,"，使用率："$5}' | tr -d " ")
 fi
 
-#eth0网卡流量与IO流量
-Ifconfig_test=$(ifconfig &>/dev/null;echo $?)
-Ifconfig_eth0=$(ifconfig eth0 &>/dev/null;echo $?)
-
-Network_TrafficEth0(){
-	Network_eth0=$(ifconfig eth0 | tr -d "()" | awk '/bytes/{printf $(NF-1) " " $NF "|"}' | awk -F '|' '{print "已接收："$1,"，已发送："$2}')
-}
-Network_TrafficLo(){
-	Network_lo=$(ifconfig lo | tr -d "()" | awk '/bytes/{printf $(NF-1) " " $NF "|"}' | awk -F '|' '{print "已接收："$1,"，已发送："$2}')
-}
-
-if [ $Ifconfig_test -eq 0 ] && [ $Ifconfig_eth0 -eq 0 ];then
-	Network_TrafficEth0
-	Network_TrafficLo
-elif [ $Ifconfig_test -eq 0 ] && [ $Ifconfig_eth0 -ne 0 ];then
-	Network_eth0="eth0网卡设备未找到！"
-	Network_TrafficLo
-elif [ $Ifconfig_test -ne 0 ];then
-	${PM} install net-tools -y &>/dev/null
-	if [ $(echo $?) -eq 0 ] && [ $(ifconfig eth0 &>/dev/null;echo $?) -eq 0 ];then
-		Network_TrafficEth0
-		Network_TrafficLo
-	elif [ $(echo $?) -eq 0 ] && [ $(ifconfig eth0 &>/dev/null;echo $?) -ne 0 ];then
-		Network_eth0="net-tools工具安装成功但eth0网卡设备未找到！"
-		Network_TrafficLo
-	else
-		Network_eth0="net-tools工具安装失败！"
-		Network_lo="net-tools工具安装失败！"
-	fi
-fi
+#主网卡流量与IO流量
+Network_IP_Address=$(hostname -I | cut -d ' ' -f1)
+Network_Traffic_Detect=$(ip a | grep -E "${Network_IP_Address}" | awk '{print $NF}')
+#Network_Traffic_Detect=$(ip link show | grep 'state UP' | awk -F ': ' '{print $2}' | head -1)
+Network_Traffic_Acquisition=$(ip -s -h link | grep -A 5 "${Network_Traffic_Detect}")
+Main_Network_Traffic=$(echo -e "${Network_Traffic_Acquisition}\n" | sed -n '4p;6p' | awk '{print $1}' | xargs | awk '{print "已接收："$1"，已发送："$2}')
+Network_Traffic_lo=$(ip -s -h link | grep -A 5 "lo" | sed -n '4p;6p' | awk '{print $1}' | xargs | awk '{print "已接收："$1"，已发送："$2}')
 
 #Private IP address
-Network_IP=$(ip route get 8.8.8.8 | head -1 | cut -d' ' -f7)
+Network_IP_Private=$(ip route get 8.8.8.8 | head -1 | cut -d' ' -f7)
+if [ "${Network_IP_Private}" == "${Network_IP_Address}" ];then
+	Network_IP=${Network_IP_Private}
+else
+	Network_IP=${Network_IP_Address}
+fi
 
 #MySQL
 Mysql_Path=$(which mysql 2>/dev/null)
@@ -187,12 +252,12 @@ echo -e "
  ===================================================================\n
      当前登录用户：${User}
        当前用户id：${User_id}
-   当前登录用户数：${Login_Users} User(s)
+   当前登录用户数：${Login_Users}
      系统用户统计：${System_Users}
  可密码登录用户数：${Allow_Login}
            私网IP：${Network_IP}
       SELinux信息：${SELinux_Result}
-   系统静态用户名：${Static_Hostname}
+       系统用户名：${Static_Hostname}
          系统版本：${System}
        系统版本号：${Release}
      系统内核版本：${Kernel}
@@ -201,11 +266,11 @@ echo -e "
             MySQL：${MySQL_version}
               PHP：${PHP_version}
              JAVA：${Java_version}
-          CPU型号：${CPU_Info}
-      CPU个数信息：${CPU_PhysicalCoreNum} 个物理CPU，每个物理CPU有 ${CPU_CoreNum} 个物理核心数，共 ${CPU_ThreadNum} 个线程
-         系统位数：${System_Bit}
-         eth0流量：${Network_eth0}
-           lo流量：${Network_lo}
+          CPU型号：${CPU_Model_INFO}
+      CPU个数信息：${CPU_Basic_Info}
+   系统架构与位数：${System_Bit_Architecture}
+       主网卡流量：${Main_Network_Traffic}
+           lo流量：${Network_Traffic_lo}
          系统负载：${Load_average}
            主磁盘：${Disk}
          home分区：${Disk_Home}
@@ -215,7 +280,8 @@ echo -e "
      Swap虚拟内存：${Swap}
              进程：${Process}
    系统最大进程数：${Max_Proc}
-       系统已运行：${Run_Day} 天 ${Run_time_hour} 小时 ${Run_time_mins} 分钟 ${Run_time_Secs} 秒
+       系统已运行：${Run_time_Day} 天 ${Run_time_Hour} 小时 ${Run_time_Mins} 分钟 ${Run_time_Secs} 秒
      当前登录时间：${Date}
+ 当前系统运行级别：${Runlevel}
    当前您登录的IP：${Login_IP}
  \n ===================================================================\n"
