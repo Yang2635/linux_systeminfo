@@ -28,7 +28,7 @@ Inode=$(df -i -h / 2>/dev/null | sed '1d' | awk '{printf("总量：%s，已使�
 Temp=$(du -sh /tmp 2>/dev/null | cut -f1)
 Load_average=$(awk '{printf("1分钟：%s，5分钟：%s，15分钟：%s",$1,$2,$3)}' /proc/loadavg)
 
-#System Run Level
+#System RunLevel
 System_RunLvel(){
 if [[ "${Runlevel_Test}" =~ "chroot" ]];then
 	Runlevel="当前系统运行于Chroot环境中！"
@@ -138,8 +138,8 @@ Shadow_Test=$(cat /etc/shadow 2>/dev/null)
 if [ -z "${Shadow_Test}" ];then
 	Allow_Login="您没有权限查看可密码登录终端系统的用户数与用户！"
 else
-	Allow_LoginUserNum=$(awk -F ':' '$2~/^\$.*\$/{print $1}' /etc/shadow | wc -w)
-	Allow_LoginUser=$(awk -F ':' '$2~/^\$.{*\$/{print $1}' /etc/shadow | xargs)
+	Allow_LoginUserNum=$(awk -F ':' '$2~/^\$.|..\$/{print $1}' /etc/shadow | wc -w)
+	Allow_LoginUser=$(awk -F ':' '$2~/^\$.|..\$/{print $1}' /etc/shadow | xargs)
 	Allow_Login="有 ${Allow_LoginUserNum} 个可密码登录终端的用户！分别是：${Allow_LoginUser}"
 fi
 
@@ -196,24 +196,36 @@ Home=$(df -h 2>/dev/null | grep "/home")
 if [ -z "$Home" ];then
 	Disk_Home="home目录非独立挂载！"
 else
-	Disk_Home=$(echo "$Home" | awk '{print "总量："$2,"，已使用："$3,"，剩余："$4,"，使用率："$5}' | tr -d " ")
+	Disk_Home=$(echo "$Home" | awk '{printf("总量：%s，已使用：%s，剩余：%s，使用率：%s"),$2,$3,$4,$5}')
 fi
 
-#主网卡流量与IO流量
-Network_IP_Address=$(hostname -I | cut -d ' ' -f1)
-Network_Traffic_Detect=$(ip a | grep -E "${Network_IP_Address}" | awk '{print $NF}')
-#Network_Traffic_Detect=$(ip link show | grep 'state UP' | awk -F ': ' '{print $2}' | head -1)
-Network_Traffic_Acquisition=$(ip -s -h link | grep -A 5 "${Network_Traffic_Detect}")
-Main_Network_Traffic=$(echo -e "${Network_Traffic_Acquisition}\n" | sed -n '4p;6p' | awk '{print $1}' | xargs | awk '{print "已接收："$1"，已发送："$2}')
-Network_Traffic_lo=$(ip -s -h link | grep -A 5 "lo" | sed -n '4p;6p' | awk '{print $1}' | xargs | awk '{print "已接收："$1"，已发送："$2}')
+#主网卡流量与IO流量统计
+Network_Test_Info=$(ip route get 8.8.8.8 | grep -Eo "dev.*")
+Network_Eth=$(echo "${Network_Test_Info}" |  cut -d ' ' -f2)
+##echo private ip
+Network_IP_Private=$(echo "${Network_Test_Info}" | grep -Eo "[0-9]{,3}\.[0-9]{,3}\.[0-9]{,3}\.[0-9]{,3}")
+eval `grep "${Network_Eth}" /proc/net/dev | awk '{printf("Eth_Rx=%s Eth_Tx=%s",$2,$10)}'`
+eval `grep "lo" /proc/net/dev | awk '{printf("lo_Rx=%s lo_Tx=%s",$2,$10)}'`
 
-#Private IP address
-Network_IP_Private=$(ip route get 8.8.8.8 | head -1 | cut -d' ' -f7)
-if [ "${Network_IP_Private}" == "${Network_IP_Address}" ];then
-	Network_IP=${Network_IP_Private}
-else
-	Network_IP=${Network_IP_Address}
-fi
+Network_Traffic_Calculation(){
+	if [[ "${Traffic[$i]}" -gt 1073741824 ]];then
+		Traffic[$i]=$(echo "${Traffic[$i]}" | awk '{printf("%.2fGB",$1/1024/1024/1024)}')
+	elif [[ "${Traffic[$i]}" -gt 1048576 ]];then
+		Traffic[$i]=$(echo "${Traffic[$i]}" | awk '{printf("%.2fMB",$1/1024/1024)}')
+	elif [[ "${Traffic[$i]}" -gt 1024 ]];then
+		Traffic[$i]=$(echo "${Traffic[$i]}" | awk '{printf("%.2fKB",$1/1024)}')
+	else
+		Traffic[$i]=$(echo "Traffic[$i]" | awk '{printf("%.2fB",$1}' )
+	fi
+}
+
+declare -A Traffic=([Main_Eth_Rx]=${Eth_Rx} [Main_Eth_Tx]=${Eth_Tx} [lo_Rx]=${lo_Rx} [lo_Tx]=${lo_Tx})
+for i in Main_Eth_Rx Main_Eth_Tx lo_Rx lo_Tx
+do
+	Network_Traffic_Calculation	
+done
+Main_Network_Traffic="已接收：${Traffic[Main_Eth_Rx]}，已发送：${Traffic[Main_Eth_Tx]}"
+lo_Network_Traffic="已接收：${Traffic[lo_Rx]}，已发送：${Traffic[lo_Tx]}"
 
 #MySQL
 Mysql_Path=$(which mysql 2>/dev/null)
@@ -255,7 +267,7 @@ echo -e "
    当前登录用户数：${Login_Users}
      系统用户统计：${System_Users}
  可密码登录用户数：${Allow_Login}
-           私网IP：${Network_IP}
+           私网IP：${Network_IP_Private}
       SELinux信息：${SELinux_Result}
        系统用户名：${Static_Hostname}
          系统版本：${System}
@@ -270,7 +282,7 @@ echo -e "
       CPU个数信息：${CPU_Basic_Info}
    系统架构与位数：${System_Bit_Architecture}
        主网卡流量：${Main_Network_Traffic}
-           lo流量：${Network_Traffic_lo}
+           lo流量：${lo_Network_Traffic}
          系统负载：${Load_average}
            主磁盘：${Disk}
          home分区：${Disk_Home}
