@@ -178,7 +178,11 @@ fi
 
 #Memory & Swap
 Memory=$(free -m | grep -E "^Mem|^内存" | awk '{printf("总量：%sM，已使用：%sM，剩余：%sM，使用率：%.2f%%",$2,$3,($2-$3),($3/$2*100))}')
-Swap=$(free -m | grep -E "^Swap|^交换" | awk '{printf("总量：%sM，已使用：%sM，剩余：%sM，使用率：%.2f%%",$2,$3,$4,($3/$2*100))}')
+if [ -n "`swapon -s`" ];then
+	Swap=$(free -m | grep -E "^Swap|^交换" | awk '{printf("总量：%sM，已使用：%sM，剩余：%sM，使用率：%.2f%%",$2,$3,$4,($3/$2*100))}')
+else
+	Swap="未检测到Swap分区！"
+fi
 
 #System Uptime
 Uptime=$(cut -f1 -d. /proc/uptime)
@@ -207,25 +211,30 @@ Network_IP_Private=$(echo "${Network_Test_Info}" | grep -Eo "[0-9]{,3}\.[0-9]{,3
 eval `grep "${Network_Eth}" /proc/net/dev | awk '{printf("Eth_Rx=%s Eth_Tx=%s",$2,$10)}'`
 eval `grep "lo" /proc/net/dev | awk '{printf("lo_Rx=%s lo_Tx=%s",$2,$10)}'`
 
-Network_Traffic_Calculation(){
-	if [[ "${Traffic[$i]}" -gt 1073741824 ]];then
+declare -A Traffic=([Main_Eth_Rx]=${Eth_Rx} [Main_Eth_Tx]=${Eth_Tx} [lo_Rx]=${lo_Rx} [lo_Tx]=${lo_Tx})
+for i in ${!Traffic[*]}
+do
+	if [[ "${Traffic[$i]}" -ge "((1024**3))" ]];then
 		Traffic[$i]=$(echo "${Traffic[$i]}" | awk '{printf("%.2fGB",$1/1024/1024/1024)}')
-	elif [[ "${Traffic[$i]}" -gt 1048576 ]];then
+	elif [[ "${Traffic[$i]}" -ge "((1024**2))" ]];then
 		Traffic[$i]=$(echo "${Traffic[$i]}" | awk '{printf("%.2fMB",$1/1024/1024)}')
-	elif [[ "${Traffic[$i]}" -gt 1024 ]];then
+	elif [[ "${Traffic[$i]}" -ge 1024 ]];then
 		Traffic[$i]=$(echo "${Traffic[$i]}" | awk '{printf("%.2fKB",$1/1024)}')
 	else
-		Traffic[$i]=$(echo "Traffic[$i]" | awk '{printf("%.2fB",$1}' )
+		Traffic[$i]=$(echo "${Traffic[$i]}" | awk '{printf("%sB",$1}' )
 	fi
-}
-
-declare -A Traffic=([Main_Eth_Rx]=${Eth_Rx} [Main_Eth_Tx]=${Eth_Tx} [lo_Rx]=${lo_Rx} [lo_Tx]=${lo_Tx})
-for i in Main_Eth_Rx Main_Eth_Tx lo_Rx lo_Tx
-do
-	Network_Traffic_Calculation	
 done
-Main_Network_Traffic="已接收：${Traffic[Main_Eth_Rx]}，已发送：${Traffic[Main_Eth_Tx]}"
+Main_Network_Traffic="主网卡为：${Network_Eth}，已接收：${Traffic[Main_Eth_Rx]}，已发送：${Traffic[Main_Eth_Tx]}"
 lo_Network_Traffic="已接收：${Traffic[lo_Rx]}，已发送：${Traffic[lo_Tx]}"
+
+#Public_Network_IP_Info
+Curl_Path=$(which curl 2>/dev/null)
+if [ -n "${Curl_Path}" ];then
+	Public_Network_IP_Info=$(${Curl_Path} -s myip.ipip.net)
+else
+	${PM} install curl -y &>/dev/null
+	[[ $? -eq 0 ]] && Public_Network_IP_Info=$(curl -s myip.ipip.net) || Public_Network_IP_Info="curl命令安装失败！"
+fi
 
 #MySQL
 Mysql_Path=$(which mysql 2>/dev/null)
@@ -268,6 +277,7 @@ echo -e "
      系统用户统计：${System_Users}
  可密码登录用户数：${Allow_Login}
            私网IP：${Network_IP_Private}
+ 设备公网IP及信息：${Public_Network_IP_Info}
       SELinux信息：${SELinux_Result}
        系统用户名：${Static_Hostname}
          系统版本：${System}
