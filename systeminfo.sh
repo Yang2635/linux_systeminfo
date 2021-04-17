@@ -215,8 +215,8 @@ Network_Test_Info=$(ip route get 8.8.8.8 | grep -Eo "dev.*")
 Network_Eth=$(echo "${Network_Test_Info}" |  cut -d ' ' -f2)
 ##echo private ip
 Network_IP_Private=$(echo "${Network_Test_Info}" | grep -Eo "[0-9]{,3}\.[0-9]{,3}\.[0-9]{,3}\.[0-9]{,3}")
-eval `grep "${Network_Eth}" /proc/net/dev | awk '{printf("Eth_Rx=%s Eth_Tx=%s",$2,$10)}'`
-eval `grep "lo" /proc/net/dev | awk '{printf("lo_Rx=%s lo_Tx=%s",$2,$10)}'`
+eval `grep "${Network_Eth}" /proc/net/dev | xargs | grep -E "^(${Network_Eth})" | awk '{printf("Eth_Rx=%s Eth_Tx=%s ",$2,$10)}'`
+eval `grep "lo" /proc/net/dev | awk '{printf("lo_Rx=%s lo_Tx=%s ",$2,$10)}'`
 
 declare -A Traffic=([Main_Eth_Rx]=${Eth_Rx} [Main_Eth_Tx]=${Eth_Tx} [lo_Rx]=${lo_Rx} [lo_Tx]=${lo_Tx})
 for i in ${!Traffic[*]}
