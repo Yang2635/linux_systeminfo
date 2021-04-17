@@ -25,7 +25,10 @@ System_Users="系统共有 `cat /etc/passwd  | wc -l` 个用户"
 Disk=$(df -h / 2>/dev/null | sed '1d' | awk '{printf("总量：%s，已使用：%s，剩余：%s，使用率：%s",$2,$3,$4,$5)}')
 Inode=$(df -i -h / 2>/dev/null | sed '1d' | awk '{printf("总量：%s，已使用：%s，剩余：%s，使用率：%s",$2,$3,$4,$5)}')
 
+#Tmp Dir
 Temp=$(du -sh /tmp 2>/dev/null | cut -f1)
+
+#System Load average
 Load_average=$(awk '{printf("1分钟：%s，5分钟：%s，15分钟：%s",$1,$2,$3)}' /proc/loadavg)
 
 #System RunLevel
@@ -64,7 +67,7 @@ fi
 }
 
 Runlevel_Test=$(runlevel 2>&1)
-if [ $? -ne 0 ] || [[ -z `runlevel 2>/dev/null` ]];then
+if [ $? -ne 0 ] || [[ -z "`runlevel 2>/dev/null`" ]];then
 	System_RunLvel
 	System_Login_Users
 	System_Login_IP
@@ -77,7 +80,10 @@ fi
 #System Info
 Kernel=$(uname -sr)
 Static_Hostname=$(hostname)
-if [ "${PM}" == "yum" ];then
+
+if [ -n "`lsb_release -a 2>/dev/null`" ];then
+	Release=$(lsb_release -a 2>/dev/null | awk -F':' '/^Release/{print $2}' | xargs)
+elif [ "${PM}" == "yum" ];then
 	Release=$(cat /etc/*-release 2>&1 | grep -Eo "[0-9]{,2}\.[0-9]{,2}\.[0-9]{,4}" | uniq)
 elif [ "${PM}" == "apt-get" ];then
 	Release=$(cat /etc/*-release | tr -d "\"" | awk -F '=' '/^VERSION_ID/{print $2}')
@@ -86,8 +92,9 @@ else
 fi
 
 System_Info(){
-cat /etc/*-release &>/dev/null
-if [ $? -eq 0 ];then
+if [ -n "`lsb_release -a 2>/dev/null`" ];then
+	System=$(lsb_release -a 2>/dev/null | awk -F ':' '/^Description/{print $2}' | xargs)
+elif [ -n "`cat /etc/*-release 2>/dev/null`" ];then
 	System=$(awk -F '=' '/^PRETTY_NAME/{print $2}' /etc/*-release | tr -d "\"")
 else
 	System="未知的系统版本或脚本未适配该系统！"
@@ -138,8 +145,8 @@ Shadow_Test=$(cat /etc/shadow 2>/dev/null)
 if [ -z "${Shadow_Test}" ];then
 	Allow_Login="您没有权限查看可密码登录终端系统的用户数与用户！"
 else
-	Allow_LoginUserNum=$(awk -F ':' '$2~/^\$.|..\$/{print $1}' /etc/shadow | wc -w)
-	Allow_LoginUser=$(awk -F ':' '$2~/^\$.|..\$/{print $1}' /etc/shadow | xargs)
+	Allow_LoginUserNum=$(awk -F ':' '$2~/^\$(.|..)\$/{print $1}' /etc/shadow | wc -w)
+	Allow_LoginUser=$(awk -F ':' '$2~/^\$(.|..)\$/{print $1}' /etc/shadow | xargs)
 	Allow_Login="有 ${Allow_LoginUserNum} 个可密码登录终端的用户！分别是：${Allow_LoginUser}"
 fi
 
@@ -215,13 +222,13 @@ declare -A Traffic=([Main_Eth_Rx]=${Eth_Rx} [Main_Eth_Tx]=${Eth_Tx} [lo_Rx]=${lo
 for i in ${!Traffic[*]}
 do
 	if [[ "${Traffic[$i]}" -ge "((1024**3))" ]];then
-		Traffic[$i]=$(echo "${Traffic[$i]}" | awk '{printf("%.2fGB",$1/1024/1024/1024)}')
+		Traffic[$i]=$(echo "${Traffic[$i]}" | awk '{printf("%.2f GB",$1/1024/1024/1024)}')
 	elif [[ "${Traffic[$i]}" -ge "((1024**2))" ]];then
-		Traffic[$i]=$(echo "${Traffic[$i]}" | awk '{printf("%.2fMB",$1/1024/1024)}')
+		Traffic[$i]=$(echo "${Traffic[$i]}" | awk '{printf("%.2f MB",$1/1024/1024)}')
 	elif [[ "${Traffic[$i]}" -ge 1024 ]];then
-		Traffic[$i]=$(echo "${Traffic[$i]}" | awk '{printf("%.2fKB",$1/1024)}')
+		Traffic[$i]=$(echo "${Traffic[$i]}" | awk '{printf("%.2f KB",$1/1024)}')
 	else
-		Traffic[$i]=$(echo "${Traffic[$i]}" | awk '{printf("%sB",$1}' )
+		Traffic[$i]=$(echo "${Traffic[$i]}" | awk '{printf("%s B",$1)}' )
 	fi
 done
 Main_Network_Traffic="主网卡为：${Network_Eth}，已接收：${Traffic[Main_Eth_Rx]}，已发送：${Traffic[Main_Eth_Tx]}"
@@ -233,7 +240,11 @@ if [ -n "${Curl_Path}" ];then
 	Public_Network_IP_Info=$(${Curl_Path} -s myip.ipip.net)
 else
 	${PM} install curl -y &>/dev/null
-	[[ $? -eq 0 ]] && Public_Network_IP_Info=$(curl -s myip.ipip.net) || Public_Network_IP_Info="curl命令安装失败！"
+	if [ $? -eq 0 ];then
+		Public_Network_IP_Info=$(curl -s myip.ipip.net)
+	else
+		Public_Network_IP_Info="curl命令安装失败！"
+	fi
 fi
 
 #MySQL
